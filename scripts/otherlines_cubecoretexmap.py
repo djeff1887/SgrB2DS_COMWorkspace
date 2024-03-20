@@ -3,6 +3,7 @@ import astropy.units as u
 from spectral_cube import SpectralCube as sc
 import matplotlib.pyplot as plt
 from astroquery.splatalogue import utils, Splatalogue
+from astroquery.linelists.cdms import CDMS
 import scipy.constants as cnst
 from astropy.io import fits
 import glob
@@ -22,6 +23,7 @@ from spectral_cube.io.casa_masks import make_casa_mask
 from utilities import *
 from math import log10, floor
 from manualspeciesabundances import *
+from pyspeckit.spectrum.models import lte_molecule
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
@@ -101,20 +103,6 @@ testT=measTrot#trotdict[source]#500*u.K
 #ntotdict=sourcecolumns[source][molecule]#{'SgrB2S':2e14*u.cm**-2,'DSi':1e14*u.cm**-2,'DSii':1e14*u.cm**-2,'DSiii':1e14*u.cm**-2,'DSiv':1e14*u.cm**-2,'DSv':1e14*u.cm**-2,'DSVI':1e14*u.cm**-2,'DSVII':1e14*u.cm**-2,'DSVIII':1e14*u.cm**-2,'DSIX':1e14*u.cm**-2}
 testntot=sourcecolumns[source][molecule]
 print(f'Input Tex: {testT}\nInput Ntot: {testntot}')
-
-'''Compute the pixelwise standard deviation for error calculations'''
-def pixelwisestd(datacube):
-    rowdims=len(cube[1])
-    coldims=len(cube[2])
-    stdarray=np.empty((rowdims,coldims))
-    for row in range(rowdims):
-        print(f'Start Row {row} std calcs')
-        for col in range(coldims):
-            targetpixspecstd=cube[:,row,col].std()
-            stdarray[row,col]=targetpixspecstd.value
-    print('Compute intensity std')
-    intensitystds=(stdarray*u.K)*linewidth_vel
-    return stdarray*u.K,intensitystds
     
 '''Gathers beam data from moment map headers'''    
 def beamer(momentmap):
@@ -166,7 +154,7 @@ def brightnessTandintensities(fluxdict):
             else:
                 velflux_T=temptransdict[temptransdictkeys[i]]['flux']
                 intensitydict.update({temptransdictkeys[i]:velflux_T})
-                temp=velflux_T/linewidth_vel#***What's going on here? Should this be fixed because it uses one uniform linewidth
+                temp=velflux_T/measlinewidth#***What's going on here? Should this be fixed because it uses one uniform linewidth
                 t_bright.update({temptransdictkeys[i]:temp})
                 d_velfluxT=(temptransdict[temptransdictkeys[i]]['stddev'])#/temp)*velflux_T
                 intensityerror.append(d_velfluxT)
@@ -215,15 +203,13 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
     transitionfluxlist=[]
     for i in range(iterations):
         print(f'\nStart {quantum_numbers[i]} moment0 procedure')
-        if euks[i] > 150*u.K or splatfluxes[i] <= -5:
-            print(f'\nSkipped {quantum_numbers[i]} for missing Eupper/expected flux cutoff')
-            continue
         temptransdict={}
         line=line_list[i]
         restline=line*(1+z)
-        line_width_freq=velocitytofreq(line_width,line)
-        nu_upper=line+line_width_freq
-        nu_lower=line-line_width_freq
+        line_sigma=line_width#/(2*np.sqrt(2*np.log(2))),Widening to try to accomodate more of the velocity field/increase the S/N on the eastern side of DS1
+        line_sigma_freq=velocitytofreq(line_sigma,line)
+        nu_upper=line+line_sigma_freq
+        nu_lower=line-line_sigma_freq
         print(f'Make spectral slab between {nu_lower} and {nu_upper}')
         slab=cube.spectral_slab(nu_upper,nu_lower)
         oldstyleslab=cube.spectral_slab((nu_upper-nu_offset),(nu_lower+nu_offset))
@@ -232,8 +218,6 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
         slabbeams=(slab.beams.value)*u.sr/u.beam
         slab_K=slab[:,pixycrd,pixxcrd]
         mulu2=(mulu(aijs[i],line)).to('cm5 g s-2')
-        linewidth_vel=vradio(singlecmpntwidth,line)
-        #tbthick=Tbthick(testntot,restline,linewidth_vel,mulu2,degeneracies[i],qrot_partfunc,eujs[i],testT).to('K')
         peak_amplitude=slab_K[peakchannel]#slab_K.max(axis=0)
         if peak_amplitude == slab_K.max(axis=0):
             print('Peak amplitude == Max amplitude in slab')
@@ -241,9 +225,11 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
             print('Other bright line in slab')
             print(f'Max brightness in slab: {slab_K.max(axis=0)}\n')
         
+        phi_nu=lineprofile(sigma=line_sigma_freq,nu_0=restline,nu=restline)
         est_nupper=nupper_estimated(testntot,degeneracies[i],qrot_partfunc,eujs[i],testT).to('cm-2')
-        est_tau=opticaldepth(aijs[i],restline,testT,est_nupper,originallinewidth).to('')
-        trad=t_rad(f,est_tau,restline,testT).to('K')
+        intertau=lte_molecule.line_tau(testT, testntot, qrot_partfunc, degeneracies[i], restline, eujs[i], aijs[i])
+        est_tau=(intertau*phi_nu).to('')#opticaldepth(aijs[i],restline,testT,est_nupper,originallinewidth).to('')
+        trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
         
         print('LTE params calculated')
         #print(f'tbthick: {tbthick}\n targetspecK_stddev: {targetspecK_stddev}\n peak_amplitude: {peak_amplitude}')
@@ -321,16 +307,34 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                     slabfwhm.write(fwhmfilename)
             pass
         elif trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev:#*u.K:
-            slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])#spwrestfreq)
-            if transition in excludedlines[source]:
+            slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
+            
+            vel_lineprofilesigma=measlinewidth/(2*np.sqrt(2*np.log(2)))
+            modelline=models.Gaussian1D(mean=(0*u.km/u.s), stddev=vel_lineprofilesigma, amplitude=trad)
+            search_for_fwhm=np.abs(np.ones(len(slab.spectral_axis.value))-np.abs(slab.spectral_axis.value/vel_lineprofilesigma).value)
+            
+            fwhm_channel=np.where(search_for_fwhm == min(search_for_fwhm))[0][0]#Find where difference is minimized and set as fwhm channel
+            central_channel=np.where(slab.spectral_axis.value == min(slab.spectral_axis.value))[0][0]#Find central channel of slab
+            channelrange_fwhm=np.abs(central_channel-fwhm_channel)#Compute channel range for chi squared
+            
+            slabcutout_forchisquare=slab_K[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]#Grabs the center channel and the fwhm range
+            velocityrange_chisquared=slab.spectral_axis[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]
+            
+            length_chisquareslab=len(slabcutout_forchisquare)
+            #velocityrange_chisquared=np.linspace(-(measlinewidth/2),(measlinewidth/2),length_slab)#Set FWHM velocity range over which chi-squared will be computed
+            chisquared=np.sum((slabcutout_forchisquare-modelline(velocityrange_chisquared))**2/(targetspecK_stddev*np.ones(length_chisquareslab))).value/length_chisquareslab
+            degrees_of_freedom=length_chisquareslab-2#we would be fitting Trot and Ntot
+            goodness_of_fit=np.abs(np.sqrt(2*chisquared)-np.sqrt(2*degrees_of_freedom-1))
+            #pdb.set_trace()
+            if transition in excludedlines[source] or goodness_of_fit >= 3:
                 print(f'\nExcluded line detected: {quantum_numbers[i]}, E_U: {euks[i]}, Freq: {line.to("GHz")}')
-                #sigma1mom0=np.empty((cube.shape[1],cube.shape[2]))
-                sigma1mom0=stdcutout.data*linewidth_vel
+                print(f'Goodness of fit: {goodness_of_fit}')
+                sigma1mom0=stdcutout.data*measlinewidth
                 sigma1hdu=fits.PrimaryHDU(sigma1mom0.value)
                 sigma1hdu.header=fits.open(rep_mom1)[0].header
                 sigma1hdu.header['RESTFRQ']=line.value
                 sigma1hdul=fits.HDUList([sigma1hdu])
-                print(f'1sigma moment0 of shape ({cube.shape[1]},{cube.shape[2]}) populated\nTarget pix flux value: {stddata[pixycrd,pixxcrd]*linewidth_vel}')
+                print(f'1sigma moment0 of shape ({cube.shape[1]},{cube.shape[2]}) populated\nTarget pix flux value: {stddata[pixycrd,pixxcrd]*measlinewidth}')
                 moment0beam=slab.beams
                 maskslabmom0=sigma1mom0
                 #maskslabmom0.write((maskedmom0fn))
@@ -492,7 +496,7 @@ stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/o
 stdhome=stdhomedict[fnum]
 
 #cubemaskarray=maskeddatacube.get_mask_array()
-c2h5oh_sourcelocs={'DSi':'/postch3oh_run1/'}
+c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_3_2of3contamsremoved/'}
 
 sourcelocs=c2h5oh_sourcelocs
 
@@ -560,8 +564,12 @@ masterfluxes=[]
 masterbeams=[]
 masterstddevs=[]
 
-excludedlines={'DSi':''}
-restfreq_representativeline={'SgrB2S':231.68668000*u.GHz,'DSi':230.9913834*u.GHz,'DSii':220.07856100*u.GHz,'DSiii':231.28111000*u.GHz,'DSiv':217.88650400*u.GHz,'DSv':220.07856100*u.GHz,'DSVI':220.07856100*u.GHz,'DSVII':220.07856100*u.GHz,'DSVIII':220.07856100*u.GHz,'DSIX':220.07856100*u.GHz,'DSX':220.07856100*u.GHz}#All taken from Splatalogue
+catdir=CDMS.get_species_table()
+catdir_c2h5oh=catdir[catdir['TAG'] == 46524]
+catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
+
+excludedlines={'DSi':['30_3&27-30_2&28&anti','19_5&15-19_4&16&anti']}
+restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':'','DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
 rep_fwhm=representative_filename_base+'fwhm.fits'
@@ -589,12 +597,11 @@ for imgnum in range(len(datacubes)):
     readstart=time.time()
     cube=sc.read(datacubes[imgnum])
     
-    #cube=cube.rechunk(save_to_tmp_dir=True)
     header=fits.getheader(datacubes[imgnum])
     
     stdimage=fits.open(stdhome+images[imgnum]+'minimize.image.pbcor_noise.fits')
     stdcellsize=(np.abs(stdimage[0].header['CDELT1']*u.deg)).to('arcsec')
-    stdcutoutsize=round(((float(regiondims)*u.deg)/stdcellsize).to('').value)#43:52 selects the region size set by the region variables in the cube>core section of the code
+    stdcutoutsize=round(((float(regiondims)*u.deg)/stdcellsize).to('').value)
     stddata=stdimage[0].data*u.K
     
     print('Acquiring cube rest frequency and computing target pixel coordinates')
@@ -611,17 +618,13 @@ for imgnum in range(len(datacubes)):
         pass
         
     velcube=cube.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=spwrestfreq)
-    #print(velcube.spectral_axis)
     cube_unmasked=velcube.unmasked_data
     
     targetworldcrds={'SgrB2S':[[0,0,0],[2.66835339e+02, -2.83961660e+01, 0]], 'DSi':[[0,0,0],[266.8316149,-28.3972040,0]], 'DSii':[[0,0,0],[266.8335363,-28.3963158,0]],'DSiii':[[0,0,0],[266.8332758,-28.3969269,0]],'DSiv':[[0,0,0],[266.8323834, -28.3954424,0]],'DSv':[[0,0,0],[266.8321331, -28.3976585, 0]],'DSVI':[[0,0,0],[266.8380037, -28.4050741,0]],'DSVII':[[0,0,0],[266.8426074, -28.4094401,0]],'DSVIII':[[0,0,0],[266.8418408, -28.4118242, 0]],'DSIX':[[0,0,0],[266.8477371, -28.4311386,0]],'DSX':[[0,0,0],[266.8452950, -28.4282608,0]]}
     cube_w=cube.wcs
-    stdwcs=WCS(stdimage[0].header)#WCS(stdimage[0].header)
+    stdwcs=WCS(stdimage[0].header)
     
-    #targetworldcrd=[[0,0,0],[266.8324225,-28.3954419,0]]#DSiv
-    targetworldcrd=targetworldcrds[source]#[[0,0,0],[266.8316149,-28.3972040,0]] #DSi
-    #targetworldcrd=[[0,0,0],[2.66835339e+02, -2.83961660e+01, 0]] #SgrB2S
-    #[[0,0,0],[266.8332569, -28.3969, 0]] #DSii/iii
+    targetworldcrd=targetworldcrds[source]
     targetpixcrd=cube_w.all_world2pix(targetworldcrd,1,ra_dec_order=True)
     fullsize_targetpixcrd=stdwcs.wcs_world2pix(targetworldcrd,1,ra_dec_order=True)
     stdpixxcrd,stdpixycrd=int(round(fullsize_targetpixcrd[1][0])),int(round(fullsize_targetpixcrd[1][1]))
@@ -691,39 +694,54 @@ for imgnum in range(len(datacubes)):
     linelist=['CDMS']
     
     print('Peforming Splatalogue queries')
-    maintable = utils.minimize_table(Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
-                                    energy_max=1840, energy_type='eu_k',
-                                    line_lists=linelist,
-                                    show_upper_degeneracy=True))
+    maintable = CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)#utils.minimize_table(Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
+                                    #energy_max=1840, energy_type='eu_k',
+                                    #line_lists=linelist,
+                                    #show_upper_degeneracy=True))
     '''Needed for upper state degeneracies'''                                
-    sparetable=Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
-                                    energy_max=1840, energy_type='eu_k',
-                                    line_lists=linelist,
-                                    show_upper_degeneracy=True)
+    sparetable=CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)#Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
+                                    #energy_max=1840, energy_type='eu_k',
+                                    #line_lists=linelist,
+                                    #show_upper_degeneracy=True)
                                     
     
-    print('Gathering Splatalogue table parameters')    
-    lines=maintable['Freq']*10**9*u.Hz/(1+z)#Redshifted to source
-    #masterlines.append(lines)
-    #vel_lines=vradio(lines,spw1restfreq)
-    qns=maintable['QNs']
-    euks=maintable['EU_K']*u.K
-    eujs=[]
-    for eupper_K in euks:
-        eujs.append(KtoJ(eupper_K))
-    degeneracies=sparetable['Upper State Degeneracy']
-    log10aijs=maintable['log10_Aij']
-    aijs=10**log10aijs*u.Hz
-    splatfluxes=sparetable['CDMS/JPL Intensity']
+    print('Gathering CDMS table parameters')
+    nus=maintable['FREQ']
+    lines=nus/(1+z)#Redshifted to source
+    
+    elo_lambda=(1/maintable['ELO'].data)*u.cm
+    elo_K=(((h*c)/elo_lambda)/k).to('K')
+    elo_J=(elo_K*k).to('J')
+    deltae=((h*maintable['FREQ'])/k).to('K')
+    euks=elo_K+deltae#maintable['EU_K']*u.K
+    eujs=(euks*k).to('J')
+    degeneracies=maintable['GUP']
+    
+    ju=maintable['Ju']
+    jl=maintable['Jl']
+    ku1=maintable['Ku']
+    ku2=maintable['vu']
+    kl1=maintable['Kl']
+    kl2=maintable['vl']
+    qns=[]
+    assert len(ju)==len(maintable) and len(jl)==len(maintable)
+    for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
+        tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
+        qns.append(tempqn)
+    
+    log10cdmsfluxes=maintable['LGINT']
+    cdmsfluxes=10**log10cdmsfluxes
+    aijs=pickett_aul(cdmsfluxes,nus,degeneracies,elo_J,eujs,catdir_qrot300,T=300*u.K)
+    
+    #pdb.set_trace()
     
     singlecmpntwidth=velocitytofreq(measlinewidth,spwrestfreq).to('GHz')#(0.00485/8)*u.GHz
     linewidth=representativelws#10*u.km/u.s#8*u.MHz
     linewidth_freq=velocitytofreq(linewidth,restfreq_representativeline[source])
     oldwideslabwidth=(15.15*u.MHz)
-    originallinewidth=(11231152.36688232*u.Hz/2)#0.005*u.GHz####0.5*0.0097*u.GHz#from small line @ 219.9808GHz# 0.0155>>20.08km/s 
+    originallinewidth=(11231152.36688232*u.Hz/2)#0.005*u.GHz#e###0.5*0.0097*u.GHz#from small line @ 219.9808GHz# 0.0155>>20.08km/s 
     nu_offset=oldwideslabwidth-originallinewidth
-    linewidth_vel=vradio(singlecmpntwidth,spwrestfreq)#(singlecmpntwidth*c.to(u.km/u.s)/spwrestfreq).to('km s-1')#vradio(linewidth,spw1restfreq)
-    #slicedqns=[]
+    #linewidth_vel=measlinewidth
     
     pixeldict={}
     transitiondict={}
@@ -1022,18 +1040,21 @@ for y in range(testyshape):
             ntot='log$_{10}(N_{tot})$'
             cm2='cm$^{-2}$'
             #strdobsntot=str(dobsNtot.value)[0]
-            if np.isnan(dobsNtot.value):
+            if not np.isfinite(dobsNtot.value) or dobsNtot <= 0 or obsNtot == 0:
                 val_dntot='nan'#np.nan
-                val_ntot=round(np.log10(obsNtot))
+                if not np.isfinite(obsNtot) or obsNtot <= 0:
+                    val_ntot=np.nan
+                else:
+                    val_ntot=round(np.log10(obsNtot))
             else:
                 val_dntot=round_to_1(dobsNtot.value/(1*10**int(np.log10(obsNtot))))
                 val_ntot=round(np.log10(obsNtot),(len(str(round(sigNtot.value)))-1))
 
-            if np.isnan(dobsTrot.value):
+            if not np.isfinite(dobsTrot.value):
                 dobsTrot=1e5*u.K
 
             if y >= 30 and y <=50:
-                if x >= 30 and x <= 501:
+                if x >= 30 and x <= 50:
                     plt.ioff()
                     plt.figure()
                     plt.errorbar(eukstofit,np.log10(nupperstofit),yerr=log10nuerr,fmt='o')
@@ -1163,8 +1184,10 @@ nugserrhdul=fits.HDUList([nugserrcube])
 print('Saving alltransition and E_U(K) lists\n')
 nugshdul.writeto(sourcepath+'alltransitions_nuppers.fits',overwrite=True)
 nugserrhdul.writeto(sourcepath+'alltransitions_nupper_error.fits',overwrite=True)
-eukqns=np.column_stack((mastereuks,masterqns,masterlines,ordereddegens))
-np.savetxt(sourcepath+'mastereuksqnsfreqsdegens.txt',eukqns,fmt='%s',header=f'Methanol transitions, excitation temperatures, and degeneracies used in this folder. Temperatures in units of K, frequencies are redshifted ({z}/{(z*c).to("km s-1")}) and in Hz.\nExcluded lines: {excludedlines[source]}')
+
+eukqns=QTable(columns=[mastereuks,masterqns,masterlines,ordereddegens], names=['Eupper','QNs','Reference Frequency','Degeneracy'], descriptions=['','',f'z={vlsr}',''])#np.column_stack((mastereuks,masterqns,masterlines,ordereddegens))
+eukqns.writeto(sourcepath+'mastereuksqnsfreqsdegens.fits')
+#np.savetxt(sourcepath+'mastereuksqnsfreqsdegens.txt',eukqns,fmt='%s',header=f'Methanol transitions, excitation temperatures, and degeneracies used in this folder. Temperatures in units of K, frequencies are redshifted ({z}/{(z*c).to("km s-1")}) and in Hz.\nExcluded lines: {excludedlines[source]}')
 
 '''This wing of the code plots up the temperature and ntot maps'''
 

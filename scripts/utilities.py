@@ -68,6 +68,9 @@ def jpl_get_molecule_name(my_molecule_name, **kwargs):
     basename = dict(JPL.query_lines(min_frequency=1*u.GHz, max_frequency=500*u.GHz, molecule=my_molecule_name, parse_name_locally=True, get_query_payload=True, **kwargs))['Molecules']
     return " ".join(basename.split(" ")[1:])
 
+def pickett_aul(intensity,nu,g,elower,eupper,q,T=300*u.K):
+    return (intensity*(nu**2)*(q/g)*((np.exp(-elower/(k*T))-np.exp(-eupper/(k*T)))**-1)*2.7964e-16).value*u.Hz
+
 '''LTE Analysis'''
 #def Tbthick(ntot,nu,line_width,mulu_2,g,q,eu_J,T_ex):
 #    print(f'ntot: {ntot}, nu: {nu},line_width: {line_width},mulu_2: {mulu_2},g: {g},q: {q},eu_J: {eu_J},T_ex: {T_ex}')

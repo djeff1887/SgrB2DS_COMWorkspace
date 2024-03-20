@@ -41,9 +41,15 @@ datadirs={'ch3oh':f'/blue/adamginsburg/d.jeff/imaging_results/SgrB2DS-CH3OH/{dat
 
 rotationalconstants={' CH3OH ':[24679.98*u.MHz,127484*u.MHz,23769.70*u.MHz],' C2H5OH ':[(34.89170*u.GHz).to('MHz'),(9.35065*u.GHz).to('MHz'),(8.13520*u.GHz).to('MHz')]}#B,A,C
 
+
 ch3oh_sourcedict={'SgrB2S':'/sep2023-5removelasttorsionalline/','DSi':'/sep2023-5addvt2linesbackin/','DSii':'/sep2023-2widerrefslab/','DSiii':'/sep2023-3vt2doublet/','DSiv':'/sep2023-4nextinline/','DSv':f'/sep2023phi_nu&doublet/','DSVI':'/sep2023-2removenewvt1line/','DSVII':f'/sep2023phi_nu&doublet/','DSVIII':f'/sep2023phi_nu&doublet/','DSIX':f'/sep2023phi_nu&doublet/'}
 ch3oh_excludedlines={'SgrB2S':['7_6-7_7E1vt1','14_6-14_7E1vt1','11_6-11_7E1vt1','15_6-15_7E1vt1','9_6-9_7E1vt1','13_6-13_7E1vt1','12_6-12_7E1vt1','8_6-8_7E1vt1','16_6-16_7E1vt1','10_6-10_7E1vt1'],'DSi':['11_6-11_7E1vt1','25_3-24_4E1vt0','23_5-22_6E1vt0','14_6-14_7E1vt1','7_6-7_7E1vt1','15_6-15_7E1vt1','16_6-16_7E1vt1','9_6-9_7E1vt1','10_6-10_7E1vt1','11_6-11_7E1vt1','12_6-12_7E1vt1','13_6-13_7E1vt1'],'DSii':['7_6-7_7E1vt1','9_6-9_7E1vt1','14_6-14_7E1vt1','10_6-10_7E1vt1','13_6-13_7E1vt1','11_6-11_7E1vt1','23_5-22_6E1vt0'],'DSiii':'','DSiv':['8_6-8_7E1vt1','7_6-7_7E1vt1','9_6-9_7E1vt1','10_6-10_7E1vt1','11_6-11_7E1vt1','12_6-12_7E1vt1','13_6-13_7E1vt1','14_6-14_7E1vt1','6_1--7_2-vt1'],'DSv':'','DSVI':["6_1--7_2-vt1",'14_6-14_7E1vt1','10_6-10_7E1vt1','9_6-9_7E1vt1','11_6-11_7E1vt1','13_6-13_7E1vt1','12_6-12_7E1vt1','13_3--14_4-vt2','13_3+-14_4+vt2','7_6-7_7E1vt1','16_6-16_7E1vt1','8_6-8_7E1vt1','17_6-17_7E1vt1'],'DSVII':["6_1--7_2-vt1"],'DSVIII':'','DSIX':''}
+
+
+c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s)}
 ch3oh_dopplershifts={'SgrB2S':0.00023099669803283718,'DSi':0.00018761288466593936,'DSii':0.00016236367659115043,'DSiii':0.000176,'DSiv':0.00018225233186845314,'DSv':0.0001838576164010067,'DSVI':0.0001661613132158407,'DSVII':0.00016236727257136008,'DSVIII':0.0001661546432045067,'DSIX':0.00015787296484373237}
+
+masterdopplershifts={' CH3OH ':ch3oh_dopplershifts,' C2H5OH ':c2h5oh_dopplershifts}
 
 excludedlines={'ch3oh':ch3oh_excludedlines}
 dopplershifts={'ch3oh':ch3oh_dopplershifts}
@@ -61,6 +67,9 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 def jpl_get_molecule_name(my_molecule_name, **kwargs):
     basename = dict(JPL.query_lines(min_frequency=1*u.GHz, max_frequency=500*u.GHz, molecule=my_molecule_name, parse_name_locally=True, get_query_payload=True, **kwargs))['Molecules']
     return " ".join(basename.split(" ")[1:])
+
+def pickett_aul(intensity,nu,g,elower,eupper,q,T=300*u.K):
+    return (intensity*(nu**2)*(q/g)*((np.exp(-elower/(k*T))-np.exp(-eupper/(k*T)))**-1)*2.7964e-16).value*u.Hz
 
 '''LTE Analysis'''
 #def Tbthick(ntot,nu,line_width,mulu_2,g,q,eu_J,T_ex):
