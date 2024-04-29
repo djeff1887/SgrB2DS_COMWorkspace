@@ -24,6 +24,7 @@ from utilities import *
 from math import log10, floor
 from manualspeciesabundances import *
 from pyspeckit.spectrum.models import lte_molecule
+from astropy.table import QTable
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
@@ -262,6 +263,7 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
             masterstddevs.append(targetspecK_stddev)
             masterqns.append(quantum_numbers[i])
             masterlines.append(line_list[i].value)
+            masterdegens.append(degeneracies[i])
             print('\nDictionaries populated for this transition.')
             if os.path.isfile(maskedslabfn):
                 print('Masked slab already exists...\n')
@@ -423,6 +425,7 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
             masterstddevs.append(targetspecK_stddev)
             masterqns.append(quantum_numbers[i])
             masterlines.append(line_list[i].value)
+            masterdegens.append(degeneracies[i])
             print(f'{quantum_numbers[i]} calculations complete.\n')
             pass
         else:
@@ -495,8 +498,7 @@ assert 'spw0' in datacubes[0], 'Cube list out of order'
 stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/',2:'/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/',3:'/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/',7:'/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/'}
 stdhome=stdhomedict[fnum]
 
-#cubemaskarray=maskeddatacube.get_mask_array()
-c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_3_2of3contamsremoved/'}
+c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_4_3contamsremoved/','DSii':'/firstattempt/'}
 
 sourcelocs=c2h5oh_sourcelocs
 
@@ -568,7 +570,7 @@ catdir=CDMS.get_species_table()
 catdir_c2h5oh=catdir[catdir['TAG'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
-excludedlines={'DSi':['30_3&27-30_2&28&anti','19_5&15-19_4&16&anti']}
+excludedlines={'DSi':['30_3&27-30_2&28','14_2&12-13_1&12','8_4&4-7_4&3']}
 restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':'','DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
@@ -800,7 +802,6 @@ intensityerror=[]
 intensities,t_brights=brightnessTandintensities(spwdict)
 
 print(intensityerror)
-
 print('Begin fitting procedure\nCompute N_uppers')
 spwdictkeys=spwdict.keys()
 print(f'spwdictkeys: {spwdictkeys}')
@@ -944,7 +945,7 @@ for y in range(testyshape):
         excludednuppers=[]
         excludedeuks=[]
         for zed in range(testzshape):
-            if nugsmap[y,x,zed] <= 0 or np.isnan(nugsmap[y,x,zed]):
+            if nugsmap[y,x,zed] <= 1e6 or np.isnan(nugsmap[y,x,zed]) or nugsmap[y,x,zed] >= 1e18:
                 continue
             elif nugsmap[y,x,zed]/nugserrormap[y,x,zed] == 1:
                 #print(f'Excluded line detected: {masterqns[z]}')
@@ -958,7 +959,7 @@ for y in range(testyshape):
                 eukstofit.append(mastereuks[zed])
                 nuperrors.append(nugserrormap[y,x,zed])
                 qnsfitted.append(masterqns[zed])
-                degensforfit.append(ordereddegens[zed])
+                degensforfit.append(masterdegens[zed])
         numtransmap[y,x]=len(nupperstofit)        
         if len(nupperstofit)==0:
             obsTex=np.nan
@@ -1185,8 +1186,9 @@ print('Saving alltransition and E_U(K) lists\n')
 nugshdul.writeto(sourcepath+'alltransitions_nuppers.fits',overwrite=True)
 nugserrhdul.writeto(sourcepath+'alltransitions_nupper_error.fits',overwrite=True)
 
-eukqns=QTable(columns=[mastereuks,masterqns,masterlines,ordereddegens], names=['Eupper','QNs','Reference Frequency','Degeneracy'], descriptions=['','',f'z={vlsr}',''])#np.column_stack((mastereuks,masterqns,masterlines,ordereddegens))
-eukqns.writeto(sourcepath+'mastereuksqnsfreqsdegens.fits')
+eukqns=QTable([mastereuks,masterqns,masterlines,masterdegens], names=['Eupper','QNs','Reference Frequency','Degeneracy'], descriptions=['','',f'z={vlsr}',''])#np.column_stack((mastereuks,masterqns,masterlines,ordereddegens))
+pdb.set_trace()
+eukqns.write(sourcepath+'mastereuksqnsfreqsdegens.fits')
 #np.savetxt(sourcepath+'mastereuksqnsfreqsdegens.txt',eukqns,fmt='%s',header=f'Methanol transitions, excitation temperatures, and degeneracies used in this folder. Temperatures in units of K, frequencies are redshifted ({z}/{(z*c).to("km s-1")}) and in Hz.\nExcluded lines: {excludedlines[source]}')
 
 '''This wing of the code plots up the temperature and ntot maps'''
