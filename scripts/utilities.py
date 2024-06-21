@@ -18,12 +18,12 @@ f=1
 Tbg=2.7355*u.K
 mu_a=(0.896e-18*u.statC*u.cm).to('cm(3/2) g(1/2) s-1 cm')
 
-incompleteqrot=[' C2H5OH ']
+incompleteqrot=[' C2H5OH ',]
 
 linelistdict={' CH3OH ':'JPL',' CH3OCHO ':'JPL',' CH3CHO ':'JPL',' C2H5OH ':'CDMS',' CH3OCH3 ':'JPL',' DCN ':'JPL',' OCS ':'CDMS',' 13CH3OH ':'CDMS',' H2CO ':'CDMS',' HC3N ':'CDMS',' C(18)O ':'CDMS',' 13CS ':'CDMS',' SO2 ':'CDMS',' NH2CHO ':'JPL',' HNCO ':'CDMS',' SO ':'CDMS', ' SiO ':'CDMS',' H2S ':'CDMS',' c-HCCCH ':'CDMS', ' HC3N v7=1 ':'CDMS',' H213CO ':'CDMS',' 13CH3CN ':'CDMS',' CH3COOH ':'CDMS',' t-HCOOH ':'CDMS',' CH3O13CHO ':'TopModel',' HNO3 ':'JPL',' CH3O13CHO, vt = 0, 1':'CDMS','NH2CN':'JPL','CH2CHCN':'CDMS','CH3OCHO v=1':'JPL','18OCS':'CDMS','CH3NCO':'CDMS','CH3CH2CN':'CDMS','NH2CO2CH3 v=1 ':'JPL',' HOCN ':'CDMS',' 13CH3CCH ':'JPL'}
 
 jplnamelist={' CH3OCHO ':'CH3OCHO',' CH3CHO ':'CH3CHO',' CH3OH ':'CH3OH'}
-cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',' CH3OH ':'CH3OH, vt=0-2',' CH3OCHO ':'CH3COOH, vt=0', ' CH3CHO ':'CH3CHOHCHO',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0', ' DCN ':'DCN, v=0', ' OCS ':'OCS, v=0',' H2CO ':'H2CO', ' HC3N ':'HC3N, v=0',' SO2 ':'SO2, v=0',' HNCO ':'HNCO',' SO ':'SO, v=0',' SiO ':'SiO, v=0-10',' H2S ':'H2S',' CH2CHCN ':'CH2CHCNH+',' CH3NCO, vb = 0 ':'CH3NCO, vb=0'}
+cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',' CH3OH ':'CH3OH, vt=0-2',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0', ' DCN ':'DCN, v=0', ' OCS ':'OCS, v=0',' H2CO ':'H2CO', ' HC3N ':'HC3N, v=0',' SO2 ':'SO2, v=0',' HNCO ':'HNCO',' SO ':'SO, v=0',' SiO ':'SiO, v=0-10',' H2S ':'H2S',' CH2CHCN ':'CH2CHCNH+',' CH3NCO, vb = 0 ':'CH3NCO, vb=0'}#' CH3OCHO ':'CH2(OH)CHO, v=0',' CH3CHO ':'CH3CHOHCHO',
 
 cdmsproblemchildren=[' OCS ',' 13CS ',' C(18)O ',' HNCO ',' SO ',' HC3N ',' CH3NCO, vb=0 ',' CH3CH2CN ',' 13CH3CN ']
 problemchildren2=[' CH3NCO, vb=0 ']
@@ -68,8 +68,14 @@ def jpl_get_molecule_name(my_molecule_name, **kwargs):
     basename = dict(JPL.query_lines(min_frequency=1*u.GHz, max_frequency=500*u.GHz, molecule=my_molecule_name, parse_name_locally=True, get_query_payload=True, **kwargs))['Molecules']
     return " ".join(basename.split(" ")[1:])
 
-def pickett_aul(intensity,nu,g,elower,eupper,q,T=300*u.K):
+def pickett_aul(intensity,nu,g,elower,eupper,q,T=300*u.K): #Equation 9 from Pickett+1998 https://www.sciencedirect.com/science/article/pii/S0022407398000910?via%3Dihub
     return (intensity*(nu**2)*(q/g)*((np.exp(-elower/(k*T))-np.exp(-eupper/(k*T)))**-1)*2.7964e-16).value*u.Hz
+
+def approx_pickett_aul(intensity,nu,g,elower,eupper,q_300,T=300*u.K):
+    return (intensity*nu*(q_300/g)*np.exp(eupper/(k*T))*1.748e-9).value*u.Hz
+
+def inverse_pickett(aij,nu,g,elower,eupper,q,T=300*u.K):
+    return (((aij*g)/(nu**2*q))*(np.exp(-elower/(k*T))-np.exp(-eupper/(k*T)))*(1/2.7964e-16)).decompose()
 
 '''LTE Analysis'''
 #def Tbthick(ntot,nu,line_width,mulu_2,g,q,eu_J,T_ex):

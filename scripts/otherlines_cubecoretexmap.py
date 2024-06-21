@@ -735,7 +735,7 @@ for imgnum in range(len(datacubes)):
     cdmsfluxes=10**log10cdmsfluxes
     aijs=pickett_aul(cdmsfluxes,nus,degeneracies,elo_J,eujs,catdir_qrot300,T=300*u.K)
     
-    #pdb.set_trace()
+    sys.exit()
     
     singlecmpntwidth=velocitytofreq(measlinewidth,spwrestfreq).to('GHz')#(0.00485/8)*u.GHz
     linewidth=representativelws#10*u.km/u.s#8*u.MHz

@@ -45,7 +45,8 @@ a_0=127484*u.MHz
 c_0=23769.70*u.MHz
 m=b_0**2/(a_0*c_0)
 Tbg=2.7355*u.K
-catdir=CDMS.get_species_table()
+cdms_catdir=CDMS.get_species_table()
+jpl_catdir=JPLSpec.get_species_table()
 
 trotdict={'SgrB2S':300*u.K,'DSi':300*u.K,'DSii':150*u.K,'DSiii':150*u.K,'DSiv':150*u.K,'DSv':100*u.K,'DSVI':300*u.K,'DSVII':200*u.K,'DSVIII':215*u.K,'DSIX':150*u.K,'DS10':150*u.K}
 
@@ -159,6 +160,9 @@ firstmolline=p1firstmolline
 plotspecpad=0.005*u.GHz
 n=1
 
+cdms_catdir_qrot_temps=np.array([1000,500,300,225,150,75,37.5,18.75,9.375,5,2.725])
+jpl_catdir_qrot_temps=[300, 225, 150, 75, 37.5, 18.75, 9.375]
+
 for m in columndict.keys():
     p1firstmolline.update({m:1})
     p2firstmolline.update({m:1})
@@ -204,8 +208,8 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     else:
         pass
     
-    freq_min=freqs[0]*(1+z)#215*u.GHz
-    freq_max=freqs[(len(freqs)-1)]*(1+z)#235*u.GHz
+    freq_min=freqs[0]#*(1+z)#215*u.GHz
+    freq_max=freqs[(len(freqs)-1)]#*(1+z)#235*u.GHz
     
     assert freq_max > freq_min, 'Decreasing frequency axis'
     
@@ -218,7 +222,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     
     qrot_partfunc=qrot(testT)
     print('Gathering CDMS table parameters')
-    catdir_ch3oh=catdir[catdir['NAME'] == 'CH3OH, vt=0-2']
+    catdir_ch3oh=cdms_catdir[cdms_catdir['NAME'] == 'CH3OH, vt=0-2']
     mcatdir_qrot300=10**catdir_ch3oh['lg(Q(300))']
     methanol_table=CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='032504 CH3OH, vt=0-2',get_query_payload=False)
     #Splatalogue.query_lines(freq_min, freq_max, chemical_name=' CH3OH ', energy_max=1840, energy_type='eu_k', line_lists=[linelistdict[' CH3OH ']], show_upper_degeneracy=True)
@@ -259,61 +263,124 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     #sys.exit()
     for molecule,hue,first in zip(list(columndict.keys())[1:], molcolors,list(firstmolline.keys())[1:]):
         '''Generate species table for contaminant search'''
-        species_catdir=catdir[catdir['NAME'] == cdmsnamelist[molecule]]
-        species_catdirtag=str(species_catdir['TAG'][0])
-        scatdir_qrot300=10**species_catdir['lg(Q(300))']
-        cdmsname=f'0{species_catdirtag} {cdmsnamelist[molecule]}'
-        modelspec=baseline
-        species_table= CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=cdmsname,get_query_payload=False)
+        if molecule in jplnamelist.keys():
+            molname=jplnamelist[molecule]
+            cCfreqs, cCaij, cCdeg, cCEU, c_qrot = get_molecular_parameters(molname,catalog='JPL', fmin=freq_min, fmax=(freq_max+100*u.GHz),)
+            species_catdir=jpl_catdir[jpl_catdir['NAME'] == jplnamelist[molecule]]
+            species_catdirtag=str(species_catdir['TAG'][0])
+            scatdir_qrot300=10**species_catdir['QLOG1']
+            jplname=f'{species_catdirtag} {jplnamelist[molecule]}'
+            species_table= JPLSpec.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=jplname,get_query_payload=False)
+            if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
+                print(f'No transitions for {molecule} in {img}. Continue')
+                continue
+            else:
+                modelspec=baseline
+                cnus=species_table['FREQ']
+                celo_lambda=(1/species_table['ELO'].data)*u.cm
+                celo_K=(((h*c)/celo_lambda)/k).to('K')
+                celo_J=(celo_K*k).to('J')
+                cdeltae=((h*species_table['FREQ'])/k).to('K')
+                ceuks=celo_K+cdeltae#maintable['EU_K']*u.K
+                ceujs=(ceuks*k).to('J')
+                cdegs=species_table['GUP']
+                clog10jplfluxes=species_table['LGINT']
+                cjplfluxes=10**clog10jplfluxes
+                caijs=pickett_aul(cjplfluxes,cnus,cdegs,celo_J,ceujs,scatdir_qrot300,T=300*u.K)
+                cupqn=species_table['QN\'']
+                clowqn=species_table['QN\"']
+                cqns=[]
+                for i, j in zip(cupqn,clowqn):
+                    i=i.replace(i[(len(i)-2):],'')
+                    i=i.replace(' ','.')
+                    j=j.replace(j[(len(j)-2):],'')
+                    j=j.replace(' ','.')
+                    a=f'{i}-{j}'
+                    cqns.append(a)
+                #print(caijs)
+                #sys.exit()
+        elif molecule in cdmsnamelist.keys():
+            molname=cdmsnamelist[molecule]
+            cCfreqs, cCaij, cCdeg, cCEU, c_qrot = get_molecular_parameters(molname,catalog='CDMS', fmin=freq_min, fmax=(freq_max+100*u.GHz),)
+            species_catdir=cdms_catdir[cdms_catdir['NAME'] == cdmsnamelist[molecule]]
+            species_catdirtag=str(species_catdir['TAG'][0])
+            scatdir_qrot300=10**species_catdir['lg(Q(300))']
+            cdmsname=f'0{species_catdirtag} {cdmsnamelist[molecule]}'
+            species_table= CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=cdmsname,get_query_payload=False)
+            if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
+                print(f'No transitions for {molecule} in {img}. Continue')
+                continue
+            else:
+                modelspec=baseline
+                cnus=species_table['FREQ']
+                ju=species_table['Ju']
+                jl=species_table['Jl']
+                ku1=species_table['Ku']
+                ku2=species_table['vu']
+                kl1=species_table['Kl']
+                kl2=species_table['vl']
+                cqns=[]
+                assert len(ju)==len(species_table) and len(jl)==len(species_table)
+                for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
+                    tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
+                    cqns.append(tempqn)
+                celo_lambda=(1/species_table['ELO'].data)*u.cm
+                celo_K=(((h*c)/celo_lambda)/k).to('K')
+                celo_J=(celo_K*k).to('J')
+                cdeltae=((h*species_table['FREQ'])/k).to('K')
+                ceuks=celo_K+cdeltae#maintable['EU_K']*u.K
+                ceujs=(ceuks*k).to('J')
+                cdegs=species_table['GUP']
+                clog10cdmsfluxes=species_table['LGINT']
+                ccdmsfluxes=10**clog10cdmsfluxes
+                caijs=pickett_aul(ccdmsfluxes,cnus,cdegs,celo_J,ceujs,scatdir_qrot300,T=300*u.K)
         
-        if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
-            print(f'No transitions for {molecule} in {img}. Continue')
-            continue
-        else:
-            pass
-        
-        molname=cdmsnamelist[molecule]
-        '''
-        param_molname=molecule.replace(' ','')
-        if molecule == ' CH3NCO, vb = 0 ':
-            molname=cdms_get_molecule_name('CH3NCO, vb=0')
-        else:
-            molname=cdms_get_molecule_name(param_molname)#cdmsnamelist[molecule]
+        #sys.exit()
+        if molecule in incompleteqrot:
+            print(f'{molecule} has an incomplete partition function')
+            '''
+            if molecule == ' CH3OCHO ':
+                print('Using fiducial 300 K partition function as stopgap\n')
+                c_qrot_partfunc=c_qrot(300*u.K)
+            else:
+            '''
+            print('Estimating by linear fit to log-log Qrot/T relation')
+            poly=Linear1D(slope=150, intercept=10)
+            fitter=fitting.LinearLSQFitter()
 
-        #if param_molname in cdmsproblemchildren:
+            catdirkeys=list(species_catdir.keys())
+            lgqrots_spec_catdir=np.array(list(species_catdir[catdirkeys[3:]].as_array()[0]))
+            nonnanqrots=list(np.where(np.isnan(lgqrots_spec_catdir)==False)[0])
+            temperatures_nonnanqrots=cdms_catdir_qrot_temps[nonnanqrots]
+
+            fitinput_xvalues=temperatures_nonnanqrots#np.linspace(3,300,1000)*u.K
+            power_law_fit=fitter(poly,np.log10(temperatures_nonnanqrots),np.log10(c_qrot(temperatures_nonnanqrots)))
+            logintercept=10**power_law_fit.intercept
+            logTs=logintercept*fitinput_xvalues**power_law_fit.slope
+            c_qrot_partfunc=fit_qrot(logintercept,testT,power_law_fit)
+        else:
+            c_qrot_partfunc=c_qrot(testT)
+        '''    
+        a=np.arange(1000)
+        plt.figure()
+        plt.scatter(a,fit_qrot(logintercept,a*u.K,power_law_fit),label='Liner fit values')
+        plt.scatter(temperatures_nonnanqrots,c_qrot(temperatures_nonnanqrots),label='CDMS measured values')
+        plt.yscale('log')
+        plt.ylim(ymin=1e3)
+        plt.xlim(xmin=2.725)
+        plt.xscale('log')
+        plt.xlabel(r'$T_{ex}$ [K]')
+        plt.ylabel(r'$Q_{rot}$')
+        plt.legend()
+        plt.title(f'{molecule}')
+        plt.show()
+        sys.exit()
         '''
-        cCfreqs, cCaij, cCdeg, cCEU, c_qrot = get_molecular_parameters(molname,catalog='CDMS',
-                                                                           fmin=freq_min, fmax=(freq_max+100*u.GHz),)
-        c_qrot_partfunc=c_qrot(testT)
-        
-        cnus=species_table['FREQ'].to('GHz')
         if molecule in othermol_dshift_v.keys():
             otherz=othermol_dshift_v[molecule]/c
             clines=cnus/(1+otherz)
         else:
             clines=cnus/(1+z)
-        
-        ju=species_table['Ju']
-        jl=species_table['Jl']
-        ku1=species_table['Ku']
-        ku2=species_table['vu']
-        kl1=species_table['Kl']
-        kl2=species_table['vl']
-        cqns=[]
-        assert len(ju)==len(species_table) and len(jl)==len(species_table)
-        for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
-            tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
-            cqns.append(tempqn)
-        celo_lambda=(1/species_table['ELO'].data)*u.cm
-        celo_K=(((h*c)/celo_lambda)/k).to('K')
-        celo_J=(celo_K*k).to('J')
-        cdeltae=((h*species_table['FREQ'])/k).to('K')
-        ceuks=celo_K+cdeltae#maintable['EU_K']*u.K
-        ceujs=(ceuks*k).to('J')
-        cdegs=species_table['GUP']
-        clog10cdmsfluxes=species_table['LGINT']
-        ccdmsfluxes=10**clog10cdmsfluxes
-        caijs=pickett_aul(ccdmsfluxes,cnus,cdegs,celo_J,ceujs,scatdir_qrot300,T=300*u.K)
     
         cntot=columndict[molecule]
         
@@ -321,20 +388,20 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         
         linedetections=[]
         for line,deg,euj,aij,qn in zip(clines,cdegs,ceujs,caijs,cqns):
-            #print(f'Transition: {qn} @ {line.to("GHz")}')
+            line=line*u.MHz#print(f'Transition: {qn} @ {line.to("GHz")}')
             if molecule in othermol_dshift_v.keys():
-                restline=line*(1+otherz)
+                restline=line*(1+otherz)#*u.MHz
             else:
-                restline=line*(1+z)
+                restline=line*(1+z)#*u.MHz
             est_nupper=nupper_estimated(cntot,deg,c_qrot_partfunc,euj,testT).to('cm-2')
-            modlinewidth=velocitytofreq(linewidth,line)
+            modlinewidth=velocitytofreq(linewidth,line)#*u.MHz)
             lineprofilesigma=modlinewidth/2*np.sqrt(2*np.log(2))
             phi_nu=lineprofile(sigma=lineprofilesigma,nu_0=restline,nu=restline)
-            intertau=lte_molecule.line_tau(testT, cntot, qrot_partfunc, deg, restline, euj, aij) 
+            intertau=lte_molecule.line_tau(testT, cntot, c_qrot_partfunc, deg, restline, euj, aij) 
             est_tau=(intertau/modlinewidth).to('')
             #print(f'Estimated tau: {"{:.3f}".format(est_tau)}')
             trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
-            sys.exit()
+            #print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
             if trad >= 3*error:
                 #print(f'Estimated brightness: {"{:.3f}".format(trad)}')
                 #modlinewidth=velocitytofreq(linewidth,line)
@@ -347,6 +414,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 #print(f'{qn} line brightness ({trad}) below 3sigma threshold ({3*error})')
                 linedetections.append(False)
                 continue
+        #sys.exit()
         if molecule == ' CH3CHO ':
             dummylist.append((freqs,modelspec(freqs)))#spwmoldict.update({img:(freqs,modelspec(freqs))})
         if firstmolline[first] and True in linedetections:
@@ -392,6 +460,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         else:
             plt.plot(freqs,methmodelspec(freqs),drawstyle='steps-mid',linestyle='--',color='green')
             print('yayy')
+    
     '''
     print('Overplotting axvlines and transition annotations')
     for line,qn,detected in zip(clines,cqns,linedetections):

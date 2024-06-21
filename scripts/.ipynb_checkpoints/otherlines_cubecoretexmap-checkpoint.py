@@ -498,8 +498,7 @@ assert 'spw0' in datacubes[0], 'Cube list out of order'
 stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/',2:'/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/',3:'/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/',7:'/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/'}
 stdhome=stdhomedict[fnum]
 
-#cubemaskarray=maskeddatacube.get_mask_array()
-c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_4_3contamsremoved/'}
+c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_4_3contamsremoved/','DSii':'/firstattempt/'}
 
 sourcelocs=c2h5oh_sourcelocs
 
@@ -736,7 +735,7 @@ for imgnum in range(len(datacubes)):
     cdmsfluxes=10**log10cdmsfluxes
     aijs=pickett_aul(cdmsfluxes,nus,degeneracies,elo_J,eujs,catdir_qrot300,T=300*u.K)
     
-    #pdb.set_trace()
+    sys.exit()
     
     singlecmpntwidth=velocitytofreq(measlinewidth,spwrestfreq).to('GHz')#(0.00485/8)*u.GHz
     linewidth=representativelws#10*u.km/u.s#8*u.MHz
