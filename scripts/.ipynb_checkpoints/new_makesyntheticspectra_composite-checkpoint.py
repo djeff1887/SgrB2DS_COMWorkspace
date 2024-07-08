@@ -108,13 +108,6 @@ print('Spectra and stds are sequential order')
 linewidth=fwhm_at_pix#2.5*u.km/u.s#2.5 km/s is ideal for DSVI
 print(f'Absolute model line width: {linewidth}\n')
 
-specieslist=[' CH3OH ',' CH3OCHO ',' HOONO ',' HNCO ',' DCN ',' H2CO ',' C2H5OH ',' CH3CHO ',' CH3COOH ',' CH3NH2 ', ' CH3OCH3 ', ' HC3N ',' NH2CHO ', ' NH2CN ',' NH2D ',' SO2 ',' SO ',' t-HCOOH ',' a-H2CCHOH ',' s-H2CCHOH ',' H2CCNH ',' CH3CH2CHO ',' HCCCHO ',' SiS ',' CH2DOH ',' C(18)O ',' HDO ',' CH2CHCN ',' CH3CH2CN ',' c-H2COCH2 ', ' c-HCCCH ',' CCS ',' CH2NH ',"Ethylene Glycol",' cis-CH2OHCHO ','Acetone', ' CH3CN ',' CH2CHCN ',' CH3O13CHO ', ' SiO ', ' OCS ', 'N2D+', ' CH3C(15)N ',' CH3CCH ',' CH3SH ',' 13CS ', ' H2S ', ' SO ',' CH3(18)OH ', ' 13CH3OH ']
-
-#linelistdict={' CH3OH ':'JPL',' CH3OCHO ':'JPL',' CH3CHO ':'JPL',' C2H5OH ':'CDMS',' CH3OCH3 ':'JPL',' DCN ':'JPL',' OCS ':'CDMS',' 13CH3OH ':'CDMS',' H2CO ':'CDMS',' HC3N ':'CDMS',' C(18)O ':'CDMS',' 13CS ':'CDMS',' SO2 ':'CDMS',' NH2CHO ':'JPL',' HNCO ':'CDMS',' SO ':'CDMS', ' SiO ':'CDMS',' H2S ':'CDMS',' c-HCCCH ':'CDMS', 'HC3N v7=1':'CDMS',' H213CO ':'CDMS',' 13CH3CN ':'CDMS',' CH3COOH ':'CDMS',' t-HCOOH ':'CDMS',' CH3O13CHO ':'TopModel',' HNO3 ':'JPL',' CH3O13CHO, vt = 0, 1 ':'CDMS',' NH2CN ':'JPL',' CH2CHCN ':'CDMS','CH3OCHO v=1':'JPL',' 18OCS ':'CDMS',' CH3NCO, vb = 0 ':'CDMS',' CH3CH2CN ':'CDMS',' NH2CO2CH3 v=1 ':'JPL',' HOCN ':'CDMS',' 13CH3CCH ':'JPL'}#' H15NO3 ':'JPL'}
-
-#jplnamelist={}
-
-#cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',}#' 13CH3CCH ':'C-13-H3CCH'}# CH3O13CHO, vt = 0, 1 ':'CH3OC-13-HO, vt=0,1'}# H15NO3':'HN-15-O3'}#' CH3NCO, vb=0 ':'CH3NCO, vb=0'}#' H2S ':'H2S'}#'CO-18'}#' HC3N ':'HC3N, v=0',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0',' OCS ':'060503 OCS, v=0',
 '''
 sgrb2scolumns={' CH3OH ':1.7e18*u.cm**-2,' CH3OCHO ':3e16*u.cm**-2, ' CH3CHO ':1.5e16*u.cm**-2,' C2H5OH ':9e16*u.cm**-2,' CH3OCH3 ':9e15*u.cm**-2,' DCN ':3.5e16*u.cm**-2, ' OCS ':6e17*u.cm**-2,' 13CH3OH ':7e17*u.cm**-2,' H2CO ':7e17*u.cm**-2,' HC3N ':1e16*u.cm**-2, ' C(18)O ':1.3e19*u.cm**-2,' 13CS ':3e16*u.cm**-2,' SO2 ':2e17*u.cm**-2,' NH2CHO ':9e15*u.cm**-2,' HNCO ':3e17*u.cm**-2,' SO ':5e17*u.cm**-2,' SiO ':1e15*u.cm**-2,' H2S ':2e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':7e16*u.cm**-2,' 13CH3CN ':1e16*u.cm**-2,' CH2CHCN ':4e15*u.cm**-2,' 18OCS ':3e17*u.cm**-2,' CH3NCO, vb = 0 ':1e16*u.cm**-2,' CH3CH2CN ':1.5e16*u.cm**-2,}#' 13CH3CCH ':1e17*u.cm**-2}#' NH2CN ':1e15*u.cm**-2,}#' 13CH3OCH3 ':1e14*u.cm**-2}#'CH3OCHO v=1':1e17*u.cm**-2}#' CH3O13CHO ':1e14*u.cm**-2,' H2CCO ':1e16*u.cm**-2,}#' H2CS ':1e18*u.cm**-2,' CH3(18)OH ':2.5e16*u.cm**-2,' NH2CN ':1e14*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' t-HCOOH ':5e14*u.cm**-2,' SiS ':1e14*u.cm**-2, ' c-HCCCH ':2.5e15*u.cm**-2, 'Acetone':6e13*u.cm**-2,' CH3C(15)N ':3e13*u.cm**-2,' SiN ':2e15*u.cm**-2, ' CH3NH2 ':9e15*u.cm**-2,}#' HOONO ':5e15*u.cm**-2,' CH3COOH ':2e15*u.cm**-2,
 #CDMS - ' CH3OH ':1.2e17*u.cm**-2,
@@ -149,7 +142,7 @@ sourcecolumns={'SgrB2S':sgrb2scolumns,'DSi':dsicolumns, 'DSii':ds2columns,'DSiii
 columndict=sourcecolumns[source]
 #plt.rcParams['figure.dpi'] = 300
 #plt.figure(1, figsize=(30,10))
-molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','darkviolet','darkkhaki','silver','blue','lime','magenta','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red']
+molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey']
 spwmoldict={}
 dummylist=[]
 p1firstmolline={}#list(np.ones(len(columndict.keys())))

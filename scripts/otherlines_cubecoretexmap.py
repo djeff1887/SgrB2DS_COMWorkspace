@@ -364,7 +364,15 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                 print('Unmasked moment0 computing...\n')
                 slabmom0=oldstyleslab.moment0()
                 print('Masked moment0 computing...\n')
-                maskslabmom0=maskedslab.moment0()
+
+                contmom0=reprojcont_K*slabfwhm#continuum sanity check
+
+                if transition in doublet:
+                    maskslabmom0=(maskedslab.moment0()+contmom0)/2
+                    print(f'\nDoublet line identified: {quantum_numbers[i]}')
+                    print(f'Value divided in half to compensate for line blending.\n')
+                else:
+                    maskslabmom0=maskedslab.moment0()+contmom0
                 #momend=time.time()-momstart
                 #print(f'{quantum_numbers[i]} elapsed time: {time.strftime("%H:%M:%S", time.gmtime(momend))}')
                 print('\nComputing masking residuals')
