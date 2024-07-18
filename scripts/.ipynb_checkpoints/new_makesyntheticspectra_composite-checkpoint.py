@@ -15,6 +15,7 @@ import pdb
 import sys
 from manualspeciesabundances import *
 from spectral_cube import SpectralCube as sc
+import radio_beam
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
@@ -31,7 +32,7 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSi'
+source='SgrB2S'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -82,12 +83,12 @@ spectra.sort()
 homedict={'SgrB2S':'/blue/adamginsburg/d.jeff/XCLASS2021/files/SgrB2S/OctReimage_K/','DSi':'/blue/adamginsburg/d.jeff/XCLASS2021/files/DSi/field10originals_K/','DSii':'/blue/adamginsburg/d.jeff/XCLASS2021/files/DSii/field10originals_K/','DSiii':'/aug2023qrotfix/','DSiv':'/aug2023qrotfix/','DSv':f'/aug2023qrotfix/','DSVI':'/aug2023qrotfix/','DSVII':f'/aug2023qrotfix/','DSVIII':f'/aug2023qrotfix/','DSIX':f'/aug2023qrotfix/'}
 sourcepath=ch3oh_sourcedict[source]
 origsourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/CH3OH/{source}{sourcepath}'
-texlocs=ch3oh_sourcedict
 
 texmappath=origsourcepath+'bootstrap_texmap_3sigma_allspw_withnans_weighted.fits'
     
 fwhmpath=glob.glob(origsourcepath+'*fwhm*')[0]
 nch3ohpath=glob.glob(origsourcepath+'ntotmap_allspw_withnans_weighted_useintercept_3sigma.fits')[0]
+contpath=origsourcepath+'reprojectedcontinuum.fits'
 
 texmapdata=fits.getdata(texmappath)*u.K
 fwhmmap=fits.getdata(fwhmpath)*u.km/u.s
@@ -97,6 +98,13 @@ testT=texmapdata[targetpix[0],targetpix[1]]#350*u.K
 fwhm_at_pix=fwhmmap[targetpix[0],targetpix[1]]
 nch3oh_at_pix=nch3ohmap[targetpix[0],targetpix[1]]
 #print(fwhm_at_pix)
+
+reprojcontfits=fits.open(contpath)
+reprojcont=reprojcontfits[0].data*u.Jy
+reprojcontrestfreq=225*u.GHz#manual addition 11/9/2022, wiggle room w/i GHz
+cntmbeam=radio_beam.Beam.from_fits_header(reprojcontfits[0].header)
+reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
+continuumlevel=reprojcont_K[targetpix[0],targetpix[1]]
 
 stds=glob.glob(origsourcepath+'errorimgs/std/*.fits')
 stds.sort()
@@ -156,6 +164,9 @@ n=1
 cdms_catdir_qrot_temps=np.array([1000,500,300,225,150,75,37.5,18.75,9.375,5,2.725])
 jpl_catdir_qrot_temps=[300, 225, 150, 75, 37.5, 18.75, 9.375]
 
+aceswidth=[[85.965625,86.434375],[86.665625,87.134375],[89.159231,89.217821],[87.895942,87.954532],[97.6625,99.5375],[99.5625,101.4375]]
+
+linedetections={}
 for m in columndict.keys():
     p1firstmolline.update({m:1})
     p2firstmolline.update({m:1})
@@ -166,7 +177,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     
     print('Getting ready - '+img)
     plt.rcParams['figure.dpi'] = mode
-    plt.figure(n, figsize=(20,10))
+    plt.figure(figsize=(20,10))
     n+=1
     if img == 'spw1':
         firstmolline=p2firstmolline
@@ -187,7 +198,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     
     cube=sc.read(spectrum)
     freqs=cube.spectral_axis
-    data=cube[:,targetpix[0],targetpix[1]]
+    data=cube[:,targetpix[0],targetpix[1]]+continuumlevel
     error=fits.getdata(stdimage)[targetpix[0],targetpix[1]]*u.K
 
     #freqs=(spec[:,0]*u.MHz).to('GHz')#cube.spectral_axis
@@ -207,7 +218,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     assert freq_max > freq_min, 'Decreasing frequency axis'
     
     print('Plotting model spectra')
-    plt.plot(freqs.value,data.value,drawstyle='steps-mid',color='black')
+    plt.plot(freqs.to('GHz').value,data.value,drawstyle='steps-mid',color='black')
     
     '''Generate methanol table for use during contaminant search'''
     #pdb.set_trace()
@@ -247,10 +258,9 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     
     '''Create background model for the methanol lines and other species'''
     baseline=models.Linear1D(slope=(0*(u.K/u.Hz)),intercept=0*u.K)
-    #mbaseline=models.Linear1D(slope=(0*(u.K/u.Hz)),intercept=0*u.K)
     baseline.bounding_box=(freqs[0],freqs[(len(freqs)-1)])
-    #mbaseline.bounding_box=(freqs[0],freqs[(len(freqs)-1)])
     methmodelspec=baseline
+    compositebaseline=baseline
     plot=np.linspace(freqs[0],freqs[(len(freqs)-1)],np.shape(data)[0]).to('GHz')
     modeldict={}
     #sys.exit()
@@ -379,9 +389,10 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         
         print(f'Begin model loops for {molecule}')
         
-        linedetections=[]
+        tempdetections={}
         for line,deg,euj,aij,qn in zip(clines,cdegs,ceujs,caijs,cqns):
-            line=line*u.MHz#print(f'Transition: {qn} @ {line.to("GHz")}')
+            if isinstance(line,float):
+                line=line*u.MHz
             if molecule in othermol_dshift_v.keys():
                 restline=line*(1+otherz)#*u.MHz
             else:
@@ -392,32 +403,30 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             phi_nu=lineprofile(sigma=lineprofilesigma,nu_0=restline,nu=restline)
             intertau=lte_molecule.line_tau(testT, cntot, c_qrot_partfunc, deg, restline, euj, aij) 
             est_tau=(intertau/modlinewidth).to('')
-            #print(f'Estimated tau: {"{:.3f}".format(est_tau)}')
             trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
             #print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
             if trad >= 3*error:
-                #print(f'Estimated brightness: {"{:.3f}".format(trad)}')
-                #modlinewidth=velocitytofreq(linewidth,line)
-                #print(f'Model linewidth (Hz): {modlinewidth}')
                 modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
-                #modelgaus+=modelline
                 modelspec+=modelline
-                linedetections.append(True)
+                compositebaseline+=modelline
+                tempdetections.update({qn:True})
             else:
-                #print(f'{qn} line brightness ({trad}) below 3sigma threshold ({3*error})')
-                linedetections.append(False)
+                tempdetections.update({qn:False})
                 continue
-        #sys.exit()
+        linedetections.update({molecule:tempdetections})
         if molecule == ' CH3CHO ':
             dummylist.append((freqs,modelspec(freqs)))#spwmoldict.update({img:(freqs,modelspec(freqs))})
-        if firstmolline[first] and True in linedetections:
-            plt.plot(freqs,modelspec(freqs),drawstyle='steps-mid',color=hue,label=molecule)
+        if firstmolline[first] and True in linedetections[molecule].values():
+            plt.plot(freqs.to('GHz').value,modelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue,label=molecule)
             firstmolline[first]=0
-        elif True in linedetections:
-            plt.plot(freqs,modelspec(freqs),drawstyle='steps-mid',color=hue)
+            #print('hello')
+            #sys.exit()
+        elif True in linedetections[molecule].values():
+            plt.plot(freqs.to('GHz').valuemodelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue)
+            #print('helloagain')
     if ' CH3OH ' in columndict:
         print('Begin CH3OH modeling\n')
-        mdetections=[]
+        tempmdetections={}
         for line,deg,euj,aij,qn in zip(mlines,mdegs,meujs,maijs,mqns):
             #print(f'Transition: {qn} @ {line.to("GHz")}')
             restline=line*(1+z)
@@ -437,21 +446,21 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
                 #modelgaus+=modelline
                 methmodelspec+=modelline
-                mdetections.append(True)
+                compositebaseline+=modelline
+                tempmdetections.update({qn:True})
             #elif qn == '16(6)-16(7)E1vt=1':
                 #pdb.set_trace()
             else:
                 #print(f'{qn} line brightness ({"{:.3f}".format(trad)}) below 3sigma threshold ({3*error})')
-                mdetections.append(False)
+                tempmdetections.update({qn:False})
                 continue
-
-        #compositespec=modelspec+methmodelspec
+        linedetections.update({' CH3OH ':tempmdetections})
         if firstmolline[' CH3OH ']:
-            plt.plot(freqs,methmodelspec(freqs),drawstyle='steps-mid',linestyle='--',color='green',label=' CH3OH ')
+            plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green',label=' CH3OH ')
             firstmolline[' CH3OH ']=0
             print('yay')
         else:
-            plt.plot(freqs,methmodelspec(freqs),drawstyle='steps-mid',linestyle='--',color='green')
+            plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green')
             print('yayy')
     
     '''
@@ -489,10 +498,24 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     else:
         plt.xlabel(r'$\nu$ (GHz)',fontsize=16)
         plt.ylabel('T$_b$ (K)',fontsize=16)
-        plt.xlim(xmin=(min(freqs)-plotspecpad).value,xmax=(max(freqs)+plotspecpad).value)
+        plt.xlim(xmin=(min(freqs.to('GHz'))-plotspecpad).value,xmax=(max(freqs.to('GHz'))+plotspecpad).value)
         plt.ylim(ymax=100)
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        #plt.savefig(fr'C:/Users/desmond/Desktop/CH3OHTemps/CompositeSpectra/submission_bootstrap_{source}_{img}_qrotfix_compositespectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra/{source}_{img}_individualizedspectra.pdf')
+        plt.show()
+        
+        #plt.rcParams['figure.dpi'] = mode
+        plt.figure(figsize=(20,10))
+        plt.plot(freqs.to('GHz').value,data.value,drawstyle='steps-mid',color='black',label='Data')
+        plt.plot(freqs.to('GHz').value,compositebaseline(freqs.to('GHz')),drawstyle='steps-mid',color='red',label='Composite Model')
+        plt.xlabel(r'$\nu$ (GHz)',fontsize=16)
+        plt.ylabel('T$_b$ (K)',fontsize=16)
+        plt.xlim(xmin=(min(freqs.to('GHz'))-plotspecpad).value,xmax=(max(freqs.to('GHz'))+plotspecpad).value)
+        plt.ylim(ymax=100)
+        plt.tick_params(labelsize=13)
+        plt.tight_layout()
+        plt.legend()
+        plt.savefig(f'../plots/HotCoreSpectra/{source}_{img}_compositespectra.pdf')
         plt.show()
