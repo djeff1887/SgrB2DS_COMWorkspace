@@ -17,12 +17,13 @@ R_i=1
 f=1
 Tbg=2.7355*u.K
 mu_a=(0.896e-18*u.statC*u.cm).to('cm(3/2) g(1/2) s-1 cm')
+dGC=8.277*u.kpc
 
 incompleteqrot=[' C2H5OH ',]
 
 linelistdict={' CH3OH ':'JPL',' CH3OCHO ':'JPL',' CH3CHO ':'JPL',' C2H5OH ':'CDMS',' CH3OCH3 ':'JPL',' DCN ':'JPL',' OCS ':'CDMS',' 13CH3OH ':'CDMS',' H2CO ':'CDMS',' HC3N ':'CDMS',' C(18)O ':'CDMS',' 13CS ':'CDMS',' SO2 ':'CDMS',' NH2CHO ':'JPL',' HNCO ':'CDMS',' SO ':'CDMS', ' SiO ':'CDMS',' H2S ':'CDMS',' c-HCCCH ':'CDMS', ' HC3N v7=1 ':'CDMS',' H213CO ':'CDMS',' 13CH3CN ':'CDMS',' CH3COOH ':'CDMS',' t-HCOOH ':'CDMS',' CH3O13CHO ':'TopModel',' HNO3 ':'JPL',' CH3O13CHO, vt = 0, 1':'CDMS','NH2CN':'JPL','CH2CHCN':'CDMS','CH3OCHO v=1':'JPL','18OCS':'CDMS','CH3NCO':'CDMS','CH3CH2CN':'CDMS','NH2CO2CH3 v=1 ':'JPL',' HOCN ':'CDMS',' 13CH3CCH ':'JPL'}
 
-jplnamelist={' CH3OCHO ':'CH3OCHO',' CH3CHO ':'CH3CHO',' CH3OH ':'CH3OH',' CH3COCH3 ':'CH3COCH3',' CH2CHCN ':'C2H3CN',}
+jplnamelist={' CH3OCHO ':'CH3OCHO',' CH3CHO ':'CH3CHO',' CH3COCH3 ':'CH3COCH3',' CH2CHCN ':'C2H3CN',}#' CH3OH ':'CH3OH'
 cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',' CH3OH ':'CH3OH, vt=0-2',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0', ' DCN ':'DCN, v=0', ' OCS ':'OCS, v=0',' H2CO ':'H2CO', ' HC3N ':'HC3N, v=0',' SO2 ':'SO2, v=0',' HNCO ':'HNCO',' SO ':'SO, v=0',' SiO ':'SiO, v=0-10',' H2S ':'H2S',' CH3NCO, vb = 0 ':'CH3NCO, vb=0',' CH3SH ':'CH3SH,v=0-2'}#' CH3OCHO ':'CH2(OH)CHO, v=0',' CH3CHO ':'CH3CHOHCHO',
 
 cdmsproblemchildren=[' OCS ',' 13CS ',' C(18)O ',' HNCO ',' SO ',' HC3N ',' CH3NCO, vb=0 ',' CH3CH2CN ',' 13CH3CN ']
@@ -38,6 +39,7 @@ minicube_end={1:'OctReimage_K/',10:'field10originals_K/',2:'field2originals_K/',
 
 dataversion={'ch3oh':'pacman_sep2023revolution'}
 datadirs={'ch3oh':f'/blue/adamginsburg/d.jeff/imaging_results/SgrB2DS-CH3OH/{dataversion}/'}
+ch3ohpropertytablepath='/blue/adamginsburg/d.jeff/imaging_results/SgrB2DS-CH3OH/pacman_sep2023revolution/pwrlawfixed_allpropertytable.fits'
 
 rotationalconstants={' CH3OH ':[24679.98*u.MHz,127484*u.MHz,23769.70*u.MHz],' C2H5OH ':[(34.89170*u.GHz).to('MHz'),(9.35065*u.GHz).to('MHz'),(8.13520*u.GHz).to('MHz')]}#B,A,C
 

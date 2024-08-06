@@ -4,7 +4,7 @@ from pyspeckit.spectrum.models.lte_molecule import get_molecular_parameters
 from astroquery.linelists.cdms import CDMS
 import astropy.units as u
 import matplotlib.pyplot as plt
-from astroquery.splatalogue import utils, Splatalogue
+#from astroquery.splatalogue import utils, Splatalogue
 import scipy.constants as cnst
 from astropy.io import fits
 import glob
@@ -16,6 +16,7 @@ import sys
 from manualspeciesabundances import *
 from spectral_cube import SpectralCube as sc
 import radio_beam
+from astropy.table import QTable, vstack
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
@@ -32,7 +33,7 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='SgrB2S'
+source='DSi'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -75,7 +76,7 @@ othermol_dshift_v=sourceothers[source]
 z=dopplershifts[source]
 z_vel=z*c
 
-assemblecubepath=minicube_base+f'{source}/'+minicube_end[fnum]+'*.fits'
+assemblecubepath=minicube_base+f'{source}/'+minicube_end[fnum]+'*spw*.fits'
 print(f'Collecting spectra from {assemblecubepath}')
 spectra=glob.glob(assemblecubepath)
 spectra.sort()
@@ -116,30 +117,6 @@ print('Spectra and stds are sequential order')
 linewidth=fwhm_at_pix#2.5*u.km/u.s#2.5 km/s is ideal for DSVI
 print(f'Absolute model line width: {linewidth}\n')
 
-'''
-sgrb2scolumns={' CH3OH ':1.7e18*u.cm**-2,' CH3OCHO ':3e16*u.cm**-2, ' CH3CHO ':1.5e16*u.cm**-2,' C2H5OH ':9e16*u.cm**-2,' CH3OCH3 ':9e15*u.cm**-2,' DCN ':3.5e16*u.cm**-2, ' OCS ':6e17*u.cm**-2,' 13CH3OH ':7e17*u.cm**-2,' H2CO ':7e17*u.cm**-2,' HC3N ':1e16*u.cm**-2, ' C(18)O ':1.3e19*u.cm**-2,' 13CS ':3e16*u.cm**-2,' SO2 ':2e17*u.cm**-2,' NH2CHO ':9e15*u.cm**-2,' HNCO ':3e17*u.cm**-2,' SO ':5e17*u.cm**-2,' SiO ':1e15*u.cm**-2,' H2S ':2e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':7e16*u.cm**-2,' 13CH3CN ':1e16*u.cm**-2,' CH2CHCN ':4e15*u.cm**-2,' 18OCS ':3e17*u.cm**-2,' CH3NCO, vb = 0 ':1e16*u.cm**-2,' CH3CH2CN ':1.5e16*u.cm**-2,}#' 13CH3CCH ':1e17*u.cm**-2}#' NH2CN ':1e15*u.cm**-2,}#' 13CH3OCH3 ':1e14*u.cm**-2}#'CH3OCHO v=1':1e17*u.cm**-2}#' CH3O13CHO ':1e14*u.cm**-2,' H2CCO ':1e16*u.cm**-2,}#' H2CS ':1e18*u.cm**-2,' CH3(18)OH ':2.5e16*u.cm**-2,' NH2CN ':1e14*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' t-HCOOH ':5e14*u.cm**-2,' SiS ':1e14*u.cm**-2, ' c-HCCCH ':2.5e15*u.cm**-2, 'Acetone':6e13*u.cm**-2,' CH3C(15)N ':3e13*u.cm**-2,' SiN ':2e15*u.cm**-2, ' CH3NH2 ':9e15*u.cm**-2,}#' HOONO ':5e15*u.cm**-2,' CH3COOH ':2e15*u.cm**-2,
-#CDMS - ' CH3OH ':1.2e17*u.cm**-2,
-
-dsicolumns={' CH3OH ':1.7e18*u.cm**-2,' CH3OCHO ':2.5e16*u.cm**-2, ' CH3CHO ':1.2e16*u.cm**-2,' C2H5OH ':9e16*u.cm**-2,' CH3OCH3 ':7e15*u.cm**-2,' DCN ':1.5e16*u.cm**-2, ' OCS ':8e17*u.cm**-2,' 13CH3OH ':7e17*u.cm**-2,' H2CO ':7e17*u.cm**-2,' HC3N ':1.7e16*u.cm**-2, ' C(18)O ':7e19*u.cm**-2,' 13CS ':4e16*u.cm**-2,' SO2 ':7e16*u.cm**-2,' NH2CHO ':9e15*u.cm**-2,' HNCO ':2e17*u.cm**-2,' SO ':9e16*u.cm**-2,' SiO ':1e16*u.cm**-2,' H2S ':3.5e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':7e16*u.cm**-2,' 13CH3CN ':1e16*u.cm**-2,' CH2CHCN ':1e15*u.cm**-2,' 18OCS ':1e17*u.cm**-2,' CH3NCO, vb = 0 ':2.5e15*u.cm**-2,' CH3CH2CN ':1e16*u.cm**-2,}#' HOCN ':1e16*u.cm**-2}#' NH2CO2CH3 v=1 ':1e16*u.cm**-2}#' CH3O13CHO, vt = 0, 1 ':5e16*u.cm**-2,}#' H15NO3 ':1e17*u.cm**-2}#{' CH3OH ':1e17*u.cm**-2,' CH3OCHO ':3e14*u.cm**-2,' HOONO ':1e15*u.cm**-2,' HNCO ':0.7e15*u.cm**-2,' DCN ':1e14*u.cm**-2,' H2CO ':1e16*u.cm**-2,' C2H5OH ':3e15*u.cm**-2, ' CH3CHO ':2e14*u.cm**-2,' CH3COOH ':0.7e14*u.cm**-2, ' CH3NH2 ':1e15*u.cm**-2, ' CH3OCH3 ':6e13*u.cm**-2,' HC3N ':1e14*u.cm**-2, ' NH2CHO ':1e12*u.cm**-2,' NH2CN ':0.8e14*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' SO2 ':8e14*u.cm**-2, ' SO ':7e11*u.cm**-2, ' t-HCOOH ':5e14*u.cm**-2,' SiS ':5e13*u.cm**-2,' C(18)O ':5e17*u.cm**-2,' CH2DOH ':5e15*u.cm**-2, ' CH2NH ':1e13*u.cm**-2,"Ethylene Glycol":1e13*u.cm**-2,'Acetone':0.25e13*u.cm**-2, ' SiO ':7e13*u.cm**-2, ' OCS ':5.25e15*u.cm**-2, ' 13CS ':5e14*u.cm**-2, ' 13CH3OH ':2e15*u.cm**-2}
-
-ds2columns={' CH3OH ':1.2e18*u.cm**-2,' CH3OCHO ':3e15*u.cm**-2,' CH3CHO ':3e15*u.cm**-2,' C2H5OH ':3e16*u.cm**-2,' CH3OCH3 ':3e15*u.cm**-2,' DCN ':5e15*u.cm**-2,' OCS ':3e17*u.cm**-2,' 13CH3OH ':1.5e17*u.cm**-2,' H2CO ':4e17*u.cm**-2,' HC3N ':9e15*u.cm**-2,' C(18)O ':6e19*u.cm**-2,' 13CS ':1e16*u.cm**-2,' SO2 ':2.5e16*u.cm**-2,' NH2CHO ':3e15*u.cm**-2,' HNCO ':5e16*u.cm**-2,' SO ':1.2e17*u.cm**-2, ' SiO ':5e15*u.cm**-2,' H2S ':1.2e18*u.cm**-2,' c-HCCCH ':3e15*u.cm**-2, 'HC3N v7=1':6e16*u.cm**-2,' H213CO ':2e16*u.cm**-2,' 13CH3CN ':2e15*u.cm**-2,' CH2CHCN ':5e14*u.cm**-2,' 18OCS ':6e15*u.cm**-2,' CH3NCO, vb = 0 ':3e14*u.cm**-2,' CH3CH2CN ':3e15*u.cm**-2,}#' HOCN ':1e16*u.cm**-2}#'CH3O13CHO, vt = 0, 1':5e15*u.cm**-2' CH3(18)OH ':2.5e15*u.cm**-2, ' CH3NH2 ':1e15*u.cm**-2, ' (13)CN ':1.5e15*u.cm**-2  NH2CN ':1e13*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' t-HCOOH ':1e14*u.cm**-2,  ' SiS ':4e15*u.cm**-2,}' HOONO ':1e16*u.cm**-2,'Carbon Dioxide':5e16*u.cm**-2,' NaCl ':1e16*u.cm**-2,' CH3COOH ':7e14*u.cm**-2,' HDCO ':1e18*u.cm**-2,
-
-ds3columns={' CH3OH ':9e17*u.cm**-2,' CH3OCHO ':7e15*u.cm**-2,' CH3CHO ':3e15*u.cm**-2,' C2H5OH ':3e16*u.cm**-2,' CH3OCH3 ':3e15*u.cm**-2,' DCN ':5e15*u.cm**-2,' OCS ':3.5e17*u.cm**-2,' 13CH3OH ':1.5e17*u.cm**-2,' H2CO ':4e17*u.cm**-2,' HC3N ':9e15*u.cm**-2,' C(18)O ':6e19*u.cm**-2,' 13CS ':1e16*u.cm**-2,' SO2 ':2.5e16*u.cm**-2,' NH2CHO ':1e15*u.cm**-2,' HNCO ':2e16*u.cm**-2,' SO ':1e17*u.cm**-2, ' SiO ':5e15*u.cm**-2,' H2S ':1.5e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':9e15*u.cm**-2,' H213CO ':1e16*u.cm**-2,' 13CH3CN ':3e15*u.cm**-2,' CH2CHCN ':4e14*u.cm**-2,' 18OCS ':4e16*u.cm**-2,' CH3NCO, vb = 0 ':3e14*u.cm**-2,' CH3CH2CN ':3.5e15*u.cm**-2,}
-
-ds4columns={' CH3OH ':1.3e18*u.cm**-2,' CH3OCHO ':7.5e15*u.cm**-2,' CH3CHO ':4e15*u.cm**-2,' C2H5OH ':4e16*u.cm**-2,' CH3OCH3 ':3e15*u.cm**-2,' DCN ':7e15*u.cm**-2,' OCS ':5e17*u.cm**-2,' 13CH3OH ':1.5e17*u.cm**-2,' H2CO ':4e17*u.cm**-2,' HC3N ':1e16*u.cm**-2,' C(18)O ':6e19*u.cm**-2,' 13CS ':2e16*u.cm**-2,' SO2 ':2.5e16*u.cm**-2,' NH2CHO ':2e15*u.cm**-2,' HNCO ':2e16*u.cm**-2,' SO ':1e17*u.cm**-2, ' SiO ':5e15*u.cm**-2,' H2S ':1.8e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':1.5e16*u.cm**-2,' H213CO ':2e16*u.cm**-2,' 13CH3CN ':5e15*u.cm**-2,' CH2CHCN ':4e14*u.cm**-2,' 18OCS ':7e16*u.cm**-2,' CH3NCO, vb = 0 ':3e14*u.cm**-2,' CH3CH2CN ':6e15*u.cm**-2,}
-
-ds5columns={' CH3OH ':3e17*u.cm**-2,' CH3OCHO ':3e15*u.cm**-2,' CH3CHO ':1e15*u.cm**-2,' C2H5OH ':9e15*u.cm**-2,' CH3OCH3 ':1.3e15*u.cm**-2,' DCN ':5e15*u.cm**-2,' OCS ':6e16*u.cm**-2,' 13CH3OH ':9e16*u.cm**-2,' H2CO ':1e17*u.cm**-2,' HC3N ':2e15*u.cm**-2,' C(18)O ':1e19*u.cm**-2,' 13CS ':4.5e15*u.cm**-2,' SO2 ':9e15*u.cm**-2,' NH2CHO ':4e14*u.cm**-2,' HNCO ':1e16*u.cm**-2,' SO ':2e16*u.cm**-2, ' SiO ':5e15*u.cm**-2,' H2S ':4e17*u.cm**-2,' c-HCCCH ':5e14*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':5e15*u.cm**-2,' 13CH3CN ':8e14*u.cm**-2,' CH2CHCN ':1e13*u.cm**-2,' 18OCS ':6e15*u.cm**-2,' CH3NCO, vb = 0 ':1e14*u.cm**-2,' CH3CH2CN ':5e14*u.cm**-2,}
-
-ds6columns={' CH3OH ':2e18*u.cm**-2,' CH3OCHO ':2.5e16*u.cm**-2, ' CH3CHO ':1.3e16*u.cm**-2,' C2H5OH ':9e16*u.cm**-2,' CH3OCH3 ':7e15*u.cm**-2,' DCN ':3.5e16*u.cm**-2, ' OCS ':6e17*u.cm**-2,' 13CH3OH ':7e17*u.cm**-2,' H2CO ':7e17*u.cm**-2,' HC3N ':1e16*u.cm**-2, ' C(18)O ':7e19*u.cm**-2,' 13CS ':4e16*u.cm**-2,' SO2 ':7e16*u.cm**-2,' NH2CHO ':9e15*u.cm**-2,' HNCO ':2e17*u.cm**-2,' SO ':2e17*u.cm**-2,' SiO ':1e16*u.cm**-2,' H2S ':2e18*u.cm**-2,' c-HCCCH ':5e15*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':7e16*u.cm**-2,' 13CH3CN ':9e15*u.cm**-2,' CH2CHCN ':2.5e15*u.cm**-2,' 18OCS ':1e17*u.cm**-2,' CH3NCO, vb = 0 ':2.5e15*u.cm**-2,' CH3CH2CN ':9e15*u.cm**-2,}
-
-ds7columns={' CH3OH ':5e17*u.cm**-2,' CH3OCHO ':5e15*u.cm**-2,' CH3CHO ':1.5e15*u.cm**-2,' C2H5OH ':1e16*u.cm**-2,' CH3OCH3 ':3e15*u.cm**-2,' DCN ':2e15*u.cm**-2,' OCS ':2e17*u.cm**-2,' 13CH3OH ':8e16*u.cm**-2,' H2CO ':1e17*u.cm**-2,' HC3N ':6e15*u.cm**-2,' C(18)O ':1.5e19*u.cm**-2,' 13CS ':5e15*u.cm**-2,' SO2 ':4e15*u.cm**-2,' NH2CHO ':7e14*u.cm**-2,' HNCO ':1.5e16*u.cm**-2,' SO ':3e16*u.cm**-2, ' SiO ':3e15*u.cm**-2,' H2S ':6e17*u.cm**-2,' c-HCCCH ':2e15*u.cm**-2, 'HC3N v7=1':3e16*u.cm**-2,' H213CO ':6e15*u.cm**-2,' 13CH3CN ':2e15*u.cm**-2,' CH2CHCN ':4e14*u.cm**-2,' 18OCS ':4e16*u.cm**-2,' CH3NCO, vb = 0 ':1e15*u.cm**-2, ' CH3CH2CN ':5e15*u.cm**-2,}#{' CH3OH ':1e16*u.cm**-2,' CH3OCHO ':1e15*u.cm**-2,' HOONO ':1e15*u.cm**-2,' HNCO ':1e15*u.cm**-2,' DCN ':1e14*u.cm**-2,' H2CO ':1e16*u.cm**-2,' C2H5OH ':3e15*u.cm**-2, ' CH3CHO ':1e14*u.cm**-2,' CH3COOH ':1e14*u.cm**-2, ' CH3NH2 ':1e15*u.cm**-2, ' CH3OCH3 ':1e14*u.cm**-2,' HC3N ':1e14*u.cm**-2, ' NH2CHO ':1e12*u.cm**-2,' NH2CN ':1e14*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' SO2 ':1e15*u.cm**-2, ' SO ':6e11*u.cm**-2, ' t-HCOOH ':1e14*u.cm**-2,' SiS ':1e14*u.cm**-2, ' OCS ':3e15*u.cm**-2, ' SiO ':1e14*u.cm**-2}
-
-ds8columns={' CH3OH ':7e17*u.cm**-2,' CH3OCHO ':5e15*u.cm**-2,' CH3CHO ':2.5e15*u.cm**-2,' C2H5OH ':3e16*u.cm**-2,' CH3OCH3 ':3e15*u.cm**-2,' DCN ':2e15*u.cm**-2,' OCS ':3.5e17*u.cm**-2,' 13CH3OH ':8e16*u.cm**-2,' H2CO ':1e17*u.cm**-2,' HC3N ':6e15*u.cm**-2,' C(18)O ':4e19*u.cm**-2,' 13CS ':5e15*u.cm**-2,' SO2 ':4e15*u.cm**-2,' NH2CHO ':7e14*u.cm**-2,' HNCO ':4e16*u.cm**-2,' SO ':3e16*u.cm**-2, ' SiO ':2e15*u.cm**-2,' H2S ':8e17*u.cm**-2,' c-HCCCH ':2e15*u.cm**-2, 'HC3N v7=1':1e16*u.cm**-2,' H213CO ':9e15*u.cm**-2,' 13CH3CN ':2e15*u.cm**-2,' CH2CHCN ':4e14*u.cm**-2,' 18OCS ':3e16*u.cm**-2,' CH3NCO, vb = 0 ':1e15*u.cm**-2, ' CH3CH2CN ':3e15*u.cm**-2,}
-
-ds9columns={' CH3OH ':2.5e17*u.cm**-2,' CH3OCHO ':9e14*u.cm**-2,' CH3CHO ':1e14*u.cm**-2,' C2H5OH ':7e15*u.cm**-2,' CH3OCH3 ':9e14*u.cm**-2,' DCN ':3e15*u.cm**-2,' OCS ':1e17*u.cm**-2,' 13CH3OH ':1.5e16*u.cm**-2,' H2CO ':9e15*u.cm**-2,' HC3N ':9e14*u.cm**-2,' C(18)O ':9e18*u.cm**-2,' 13CS ':4e15*u.cm**-2,' SO2 ':2.5e15*u.cm**-2,' NH2CHO ':3e14*u.cm**-2,' HNCO ':5e15*u.cm**-2,' SO ':2e16*u.cm**-2, ' SiO ':6e14*u.cm**-2,' H2S ':3.5e17*u.cm**-2,' c-HCCCH ':8e14*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':5e15*u.cm**-2,' 13CH3CN ':5e14*u.cm**-2,' CH3CH2CN ':9e14*u.cm**-2,}#{' CH3OH ':1e15*u.cm**-2,' CH3OCHO ':1e15*u.cm**-2,' HOONO ':1e15*u.cm**-2,' HNCO ':1e15*u.cm**-2,' DCN ':1e14*u.cm**-2,' H2CO ':1e16*u.cm**-2,' C2H5OH ':3e15*u.cm**-2, ' CH3CHO ':1e14*u.cm**-2,' CH3COOH ':1e14*u.cm**-2, ' CH3NH2 ':1e15*u.cm**-2, ' CH3OCH3 ':1e14*u.cm**-2,' HC3N ':1e14*u.cm**-2, ' NH2CHO ':1e12*u.cm**-2,' NH2CN ':1e14*u.cm**-2, ' NH2D ':1e15*u.cm**-2, ' SO2 ':1e15*u.cm**-2, ' SO ':6e11*u.cm**-2, ' t-HCOOH ':1e14*u.cm**-2,' SiS ':1e14*u.cm**-2, ' OCS ':3e15*u.cm**-2, ' SiO ':1e14*u.cm**-2}
-
-ds10columns={' CH3OH ':6e17*u.cm**-2,' CH3OCHO ':3e15*u.cm**-2,' CH3CHO ':9e14*u.cm**-2,' C2H5OH ':9e15*u.cm**-2,' CH3OCH3 ':2e15*u.cm**-2,' DCN ':3e15*u.cm**-2,' OCS ':1.5e17*u.cm**-2,' 13CH3OH ':1e17*u.cm**-2,' H2CO ':6e16*u.cm**-2,' HC3N ':5e15*u.cm**-2,' C(18)O ':3e19*u.cm**-2,' 13CS ':1e16*u.cm**-2,' SO2 ':6e15*u.cm**-2,' NH2CHO ':5e14*u.cm**-2,' HNCO ':5e15*u.cm**-2,' SO ':5e16*u.cm**-2, ' SiO ':4e15*u.cm**-2,' H2S ':4e17*u.cm**-2,' c-HCCCH ':9e14*u.cm**-2, 'HC3N v7=1':5e15*u.cm**-2,' H213CO ':1e16*u.cm**-2,' 13CH3CN ':1.5e15*u.cm**-2,}
-'''
 weeds=[' CH3OCHO ', ' CH3CHO ']
 cdmsproblemchildren=['OCS','13CS','C(18)O','HNCO','SO','HC3N','CH3NCO, vb=0','CH3CH2CN']
 problemchildren2=['CH3NCO, vb=0']
@@ -148,8 +125,7 @@ sourcecolumns={'SgrB2S':sgrb2scolumns,'DSi':dsicolumns, 'DSii':ds2columns,'DSiii
                'DSv':ds5columns,'DSVI':ds6columns,'DSVII':ds7columns,'DSVIII':ds8columns,'DSIX':ds9columns,'DS10':ds10columns}
 
 columndict=sourcecolumns[source]
-#plt.rcParams['figure.dpi'] = 300
-#plt.figure(1, figsize=(30,10))
+
 molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey']
 spwmoldict={}
 dummylist=[]
@@ -226,7 +202,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     
     qrot_partfunc=qrot(testT)
     print('Gathering CDMS table parameters')
-    catdir_ch3oh=cdms_catdir[cdms_catdir['NAME'] == 'CH3OH, vt=0-2']
+    catdir_ch3oh=cdms_catdir[cdms_catdir['molecule'] == 'CH3OH, vt=0-2']
     mcatdir_qrot300=10**catdir_ch3oh['lg(Q(300))']
     methanol_table=CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='032504 CH3OH, vt=0-2',get_query_payload=False)
     #Splatalogue.query_lines(freq_min, freq_max, chemical_name=' CH3OH ', energy_max=1840, energy_type='eu_k', line_lists=[linelistdict[' CH3OH ']], show_upper_degeneracy=True)
@@ -305,11 +281,12 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         elif molecule in cdmsnamelist.keys():
             molname=cdmsnamelist[molecule]
             cCfreqs, cCaij, cCdeg, cCEU, c_qrot = get_molecular_parameters(molname,catalog='CDMS', fmin=freq_min, fmax=(freq_max+100*u.GHz),)
-            species_catdir=cdms_catdir[cdms_catdir['NAME'] == cdmsnamelist[molecule]]
-            species_catdirtag=str(species_catdir['TAG'][0])
+            species_catdir=cdms_catdir[cdms_catdir['molecule'] == cdmsnamelist[molecule]]
+            species_catdirtag=str(species_catdir['tag'][0])
             scatdir_qrot300=10**species_catdir['lg(Q(300))']
             cdmsname=f'0{species_catdirtag} {cdmsnamelist[molecule]}'
             species_table= CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=cdmsname,get_query_payload=False)
+
             if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
                 print(f'No transitions for {molecule} in {img}. Continue')
                 continue
@@ -323,10 +300,20 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 kl1=species_table['Kl']
                 kl2=species_table['vl']
                 cqns=[]
-                assert len(ju)==len(species_table) and len(jl)==len(species_table)
-                for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
-                    tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
-                    cqns.append(tempqn)
+                if 'C2H5OH' in cdmsname:
+                    upperconformer=species_table['F1u']
+                    lowerconformer=species_table['F1l']
+                    assert len(ju)==len(species_table) and len(jl)==len(species_table)
+                    for jupper,jlower,kupper1,kupper2,upcon,klower1,klower2,lowcon in zip(ju,jl,ku1,ku2,upperconformer,kl1,kl2,lowerconformer):
+                        tempqn=f'{jupper}({kupper1},{kupper2})({upcon})-{jlower}({klower1},{klower2})({lowcon})'
+                        cqns.append(tempqn)
+                        #print(tempqn)
+                        #sys.exit()
+                else:
+                    assert len(ju)==len(species_table) and len(jl)==len(species_table)
+                    for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
+                        tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
+                        cqns.append(tempqn)
                 celo_lambda=(1/species_table['ELO'].data)*u.cm
                 celo_K=(((h*c)/celo_lambda)/k).to('K')
                 celo_J=(celo_K*k).to('J')
@@ -363,22 +350,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             c_qrot_partfunc=fit_qrot(logintercept,testT,power_law_fit)
         else:
             c_qrot_partfunc=c_qrot(testT)
-        '''    
-        a=np.arange(1000)
-        plt.figure()
-        plt.scatter(a,fit_qrot(logintercept,a*u.K,power_law_fit),label='Liner fit values')
-        plt.scatter(temperatures_nonnanqrots,c_qrot(temperatures_nonnanqrots),label='CDMS measured values')
-        plt.yscale('log')
-        plt.ylim(ymin=1e3)
-        plt.xlim(xmin=2.725)
-        plt.xscale('log')
-        plt.xlabel(r'$T_{ex}$ [K]')
-        plt.ylabel(r'$Q_{rot}$')
-        plt.legend()
-        plt.title(f'{molecule}')
-        plt.show()
-        sys.exit()
-        '''
+        
         if molecule in othermol_dshift_v.keys():
             otherz=othermol_dshift_v[molecule]/c
             clines=cnus/(1+otherz)
@@ -388,9 +360,9 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         cntot=columndict[molecule]
         
         print(f'Begin model loops for {molecule}')
-        
-        tempdetections={}
-        for line,deg,euj,aij,qn in zip(clines,cdegs,ceujs,caijs,cqns):
+        firstmodelline=True 
+        tempdetections=[]
+        for line,deg,euj,aij,qn,euk in zip(clines,cdegs,ceujs,caijs,cqns,ceuks):
             if isinstance(line,float):
                 line=line*u.MHz
             if molecule in othermol_dshift_v.keys():
@@ -402,32 +374,37 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             lineprofilesigma=modlinewidth/2*np.sqrt(2*np.log(2))
             phi_nu=lineprofile(sigma=lineprofilesigma,nu_0=restline,nu=restline)
             intertau=lte_molecule.line_tau(testT, cntot, c_qrot_partfunc, deg, restline, euj, aij) 
-            est_tau=(intertau/modlinewidth).to('')
+            est_tau=(intertau*phi_nu).to('')
             trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
             #print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
             if trad >= 3*error:
                 modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
                 modelspec+=modelline
                 compositebaseline+=modelline
-                tempdetections.update({qn:True})
+                if firstmodelline:# Updated to let us retrieve the parameters of the detected lines
+                    tempdetections=QTable(rows=[[qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper]],names=['QNs','RestFrequency','ReferenceFrequency','Eupper','Degeneracy','Aij','ModelBrightness','ModelNupper'])
+                    firstmodelline=False
+                else:
+                    tempdetections.add_row([qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper])
             else:
-                tempdetections.update({qn:False})
-                continue
-        linedetections.update({molecule:tempdetections})
+                continue       
+        if molecule in linedetections.keys():
+            linedetections[molecule]=vstack([linedetections[molecule], tempdetections])
+        else:
+            linedetections.update({molecule:tempdetections})
+            
         if molecule == ' CH3CHO ':
             dummylist.append((freqs,modelspec(freqs)))#spwmoldict.update({img:(freqs,modelspec(freqs))})
-        if firstmolline[first] and True in linedetections[molecule].values():
+        if firstmolline[first] and len(linedetections[molecule]):
             plt.plot(freqs.to('GHz').value,modelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue,label=molecule)
             firstmolline[first]=0
-            #print('hello')
-            #sys.exit()
-        elif True in linedetections[molecule].values():
-            plt.plot(freqs.to('GHz').valuemodelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue)
-            #print('helloagain')
+        elif len(linedetections[molecule]) != 0:
+            plt.plot(freqs.to('GHz').value,modelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue)
     if ' CH3OH ' in columndict:
         print('Begin CH3OH modeling\n')
-        tempmdetections={}
-        for line,deg,euj,aij,qn in zip(mlines,mdegs,meujs,maijs,mqns):
+        firstmodelline=True 
+        tempch3ohdetections=[]
+        for line,deg,euj,aij,qn,euk in zip(mlines,mdegs,meujs,maijs,mqns,meuks):
             #print(f'Transition: {qn} @ {line.to("GHz")}')
             restline=line*(1+z)
             modlinewidth=velocitytofreq(linewidth,line)
@@ -447,14 +424,21 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 #modelgaus+=modelline
                 methmodelspec+=modelline
                 compositebaseline+=modelline
-                tempmdetections.update({qn:True})
-            #elif qn == '16(6)-16(7)E1vt=1':
-                #pdb.set_trace()
+                if firstmodelline:# and molecule not in linedetections.keys():
+                    tempch3ohdetections=QTable(rows=[[qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper]],names=['QNs','RestFrequency','ReferenceFrequency','Eupper','Degeneracy','Aij','ModelBrightness','ModelNupper'])
+                    firstmodelline=False
+                else:
+                    tempch3ohdetections.add_row([qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper])
             else:
                 #print(f'{qn} line brightness ({"{:.3f}".format(trad)}) below 3sigma threshold ({3*error})')
-                tempmdetections.update({qn:False})
+                #tempmdetections.update({qn:False})
                 continue
-        linedetections.update({' CH3OH ':tempmdetections})
+        if ' CH3OH ' in linedetections.keys():
+            linedetections[' CH3OH ']=vstack([linedetections[' CH3OH '], tempch3ohdetections])
+            #sys.exit()
+        else:
+            linedetections.update({' CH3OH ':tempch3ohdetections})
+            
         if firstmolline[' CH3OH ']:
             plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green',label=' CH3OH ')
             firstmolline[' CH3OH ']=0
@@ -503,7 +487,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra/{source}_{img}_individualizedspectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_individualizedspectra.pdf')
         plt.show()
         
         #plt.rcParams['figure.dpi'] = mode
@@ -517,5 +501,5 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra/{source}_{img}_compositespectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_compositespectra.pdf')
         plt.show()

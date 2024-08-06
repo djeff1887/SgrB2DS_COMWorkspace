@@ -198,7 +198,7 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
     print('Grab cube and reference pixel')
     targetspec_K=cube[:,pixycrd,pixxcrd]
     cubebeams=(cube.beams.value)*u.sr/u.beam
-    print('Compute cube brightness temperature stddev')
+    print('Collect cube brightness temperature stddev')
     targetspecK_stddev=stddata[stdpixycrd,stdpixxcrd]
     transitionbeamlist=[]
     transitionfluxlist=[]
@@ -238,7 +238,7 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
         #if tbthick >= targetspecK_stddev:
         #    print(f'\n est tau from data at {testT}: {(peak_amplitude/trad).to("")}')
         print('Slicing quantum numbers')
-        transition=qn_replace(quantum_numbers[i])
+        transition=fileqns[i]#qn_replace(quantum_numbers[i])
         moment0filename=home+f'{nospace_molecule}~'+transition+'_raw.fits'
         maskedmom0fn=home+f'{nospace_molecule}~'+transition+'_masked.fits'
         maskresidualfn=home+f'{nospace_molecule}~'+transition+'_residual.fits'
@@ -364,7 +364,15 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                 print('Unmasked moment0 computing...\n')
                 slabmom0=oldstyleslab.moment0()
                 print('Masked moment0 computing...\n')
-                maskslabmom0=maskedslab.moment0()
+
+                contmom0=reprojcont_K*slabfwhm#continuum sanity check
+
+                if transition in doublet:
+                    maskslabmom0=(maskedslab.moment0()+contmom0)/2
+                    print(f'\nDoublet line identified: {quantum_numbers[i]}')
+                    print(f'Value divided in half to compensate for line blending.\n')
+                else:
+                    maskslabmom0=maskedslab.moment0()+contmom0
                 #momend=time.time()-momstart
                 #print(f'{quantum_numbers[i]} elapsed time: {time.strftime("%H:%M:%S", time.gmtime(momend))}')
                 print('\nComputing masking residuals')
@@ -498,11 +506,11 @@ assert 'spw0' in datacubes[0], 'Cube list out of order'
 stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/',2:'/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/',3:'/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/',7:'/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/'}
 stdhome=stdhomedict[fnum]
 
-c2h5oh_sourcelocs={'DSi':'/chisquare_goodnessoffit_4_3contamsremoved/','DSii':'/firstattempt/'}
+c2h5oh_sourcelocs={'DSi':'/aug2024_1_includesubstateinfilename/','DSii':'/firstattempt/'}
 
 sourcelocs=c2h5oh_sourcelocs
 
-representativelines={'DSi':'14_0&14-13_1&13'}
+representativelines={'DSi':'14.0.14_2-13.1.13_2'}
 representativelws=measlinewidth#{'SgrB2S':(5*u.km/u.s),'DSi':(3*u.km/u.s),'DSii':(3*u.km/u.s),'DSiii':(3*u.km/u.s),'DSiv':(4*u.km/u.s),'DSv':(4*u.km/u.s),'DSVI':(3*u.km/u.s),'DSVII':(2.5*u.km/u.s),'DSVIII':(2.5*u.km/u.s),'DSIX':(5*u.km/u.s),'DSX':(4*u.km/u.s)}#{'SgrB2S':8*u.MHz,'DSi':3.6*u.MHz}#11MHz for ~10 km/s
 representativecubes={'SgrB2S':2,'DSi':2,'DSii':1,'DSiii':2,'DSiv':0,'DSv':1,'DSVI':1,'DSVII':1,'DSVIII':1,'DSIX':1,'DSX':1}#spwnumber
 
@@ -567,7 +575,7 @@ masterbeams=[]
 masterstddevs=[]
 
 catdir=CDMS.get_species_table()
-catdir_c2h5oh=catdir[catdir['TAG'] == 46524]
+catdir_c2h5oh=catdir[catdir['tag'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
 excludedlines={'DSi':['30_3&27-30_2&28','14_2&12-13_1&12','8_4&4-7_4&3']}
@@ -725,11 +733,16 @@ for imgnum in range(len(datacubes)):
     ku2=maintable['vu']
     kl1=maintable['Kl']
     kl2=maintable['vl']
+    upperconformer=maintable['F1u']
+    lowerconformer=maintable['F1l']
     qns=[]
+    fileqns=[]
     assert len(ju)==len(maintable) and len(jl)==len(maintable)
-    for jupper,jlower,kupper1,kupper2,klower1,klower2 in zip(ju,jl,ku1,ku2,kl1,kl2):
-        tempqn=f'{jupper}({kupper1},{kupper2})-{jlower}({klower1},{klower2})'
+    for jupper,jlower,kupper1,kupper2,upcon,klower1,klower2,lowcon in zip(ju,jl,ku1,ku2,upperconformer,kl1,kl2,lowerconformer):
+        tempqn=f'{jupper}({kupper1},{kupper2})({upcon})-{jlower}({klower1},{klower2})({lowcon})'
+        tempfileqn=f'{jupper}.{kupper1}.{kupper2}_{upcon}-{jlower}.{klower1}.{klower2}_{lowcon}'
         qns.append(tempqn)
+        fileqns.append(tempfileqn)
     
     log10cdmsfluxes=maintable['LGINT']
     cdmsfluxes=10**log10cdmsfluxes
