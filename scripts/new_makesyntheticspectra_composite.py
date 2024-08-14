@@ -328,12 +328,6 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         #sys.exit()
         if molecule in incompleteqrot:
             print(f'{molecule} has an incomplete partition function')
-            '''
-            if molecule == ' CH3OCHO ':
-                print('Using fiducial 300 K partition function as stopgap\n')
-                c_qrot_partfunc=c_qrot(300*u.K)
-            else:
-            '''
             print('Estimating by linear fit to log-log Qrot/T relation')
             poly=Linear1D(slope=150, intercept=10)
             fitter=fitting.LinearLSQFitter()
@@ -392,13 +386,11 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             linedetections[molecule]=vstack([linedetections[molecule], tempdetections])
         else:
             linedetections.update({molecule:tempdetections})
-            
-        if molecule == ' CH3CHO ':
-            dummylist.append((freqs,modelspec(freqs)))#spwmoldict.update({img:(freqs,modelspec(freqs))})
-        if firstmolline[first] and len(linedetections[molecule]):
+
+        if firstmolline[first] and len(linedetections[molecule]) != 0:
             plt.plot(freqs.to('GHz').value,modelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue,label=molecule)
             firstmolline[first]=0
-        elif len(linedetections[molecule]) != 0:
+        elif len(linedetections[molecule]) > 0:
             plt.plot(freqs.to('GHz').value,modelspec(freqs.to('GHz')),drawstyle='steps-mid',color=hue)
     if ' CH3OH ' in columndict:
         print('Begin CH3OH modeling\n')
@@ -439,11 +431,11 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         else:
             linedetections.update({' CH3OH ':tempch3ohdetections})
             
-        if firstmolline[' CH3OH ']:
+        if firstmolline[' CH3OH '] and len(linedetections[molecule]) != 0:
             plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green',label=' CH3OH ')
             firstmolline[' CH3OH ']=0
             print('yay')
-        else:
+        elif len(linedetections[molecule]) > 0:
             plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green')
             print('yayy')
     
@@ -487,7 +479,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_individualizedspectra.pdf')
+        #plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_individualizedspectra.pdf')
         plt.show()
         
         #plt.rcParams['figure.dpi'] = mode
@@ -501,5 +493,5 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_compositespectra.pdf')
+        #plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_compositespectra.pdf')
         plt.show()

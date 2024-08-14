@@ -207,10 +207,12 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
         temptransdict={}
         line=line_list[i]
         restline=line*(1+z)
-        line_sigma=line_width#/(2*np.sqrt(2*np.log(2))),Widening to try to accomodate more of the velocity field/increase the S/N on the eastern side of DS1
+        line_fwhm=line_width
+        line_sigma=line_width/(2*np.sqrt(2*np.log(2)))
+        line_fwhm_freq=velocitytofreq(line_fwhm,line)
         line_sigma_freq=velocitytofreq(line_sigma,line)
-        nu_upper=line+line_sigma_freq
-        nu_lower=line-line_sigma_freq
+        nu_upper=line+line_fwhm_freq
+        nu_lower=line-line_fwhm_freq
         print(f'Make spectral slab between {nu_lower} and {nu_upper}')
         slab=cube.spectral_slab(nu_upper,nu_lower)
         oldstyleslab=cube.spectral_slab((nu_upper-nu_offset),(nu_lower+nu_offset))
@@ -308,26 +310,28 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                     slabmom2.write(momentnfilenames[moment-1])
                     slabfwhm.write(fwhmfilename)
             pass
-        elif trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev:#*u.K:
-            slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
+        elif trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev and trad > continuuminpix:#*u.K:
+            chisquare_slab=slab_K.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
             
-            vel_lineprofilesigma=measlinewidth/(2*np.sqrt(2*np.log(2)))
+            vel_lineprofilesigma=line_sigma#measlinewidth/(2*np.sqrt(2*np.log(2)))
             modelline=models.Gaussian1D(mean=(0*u.km/u.s), stddev=vel_lineprofilesigma, amplitude=trad)
-            search_for_fwhm=np.abs(np.ones(len(slab.spectral_axis.value))-np.abs(slab.spectral_axis.value/vel_lineprofilesigma).value)
-            
+            '''
+            search_for_fwhm=min(np.abs((measlinewidth-np.abs(slab.spectral_axis))/measlinewidth))
             fwhm_channel=np.where(search_for_fwhm == min(search_for_fwhm))[0][0]#Find where difference is minimized and set as fwhm channel
             central_channel=np.where(slab.spectral_axis.value == min(slab.spectral_axis.value))[0][0]#Find central channel of slab
-            channelrange_fwhm=np.abs(central_channel-fwhm_channel)#Compute channel range for chi squared
-            
-            slabcutout_forchisquare=slab_K[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]#Grabs the center channel and the fwhm range
-            velocityrange_chisquared=slab.spectral_axis[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]
+            channelrange_fwhm=np.abs(central_channel-fwhm_channel)#Compute channel width for chi squared
+            '''
+            slabcutout_forchisquare=chisquare_slab+continuuminpix#_K[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]+continuuminpix#Grabs the center channel and the fwhm range, adds  in continuum for more accurate comparison
+            velocityrange_chisquared=chisquare_slab.spectral_axis#[(central_channel-channelrange_fwhm):(central_channel+channelrange_fwhm)]
             
             length_chisquareslab=len(slabcutout_forchisquare)
             #velocityrange_chisquared=np.linspace(-(measlinewidth/2),(measlinewidth/2),length_slab)#Set FWHM velocity range over which chi-squared will be computed
             chisquared=np.sum((slabcutout_forchisquare-modelline(velocityrange_chisquared))**2/(targetspecK_stddev*np.ones(length_chisquareslab))).value/length_chisquareslab
             degrees_of_freedom=length_chisquareslab-2#we would be fitting Trot and Ntot
             goodness_of_fit=np.abs(np.sqrt(2*chisquared)-np.sqrt(2*degrees_of_freedom-1))
-            #pdb.set_trace()
+            plt.plot(chisquare_slab.spectral_axis.value,chisquare_slab.value,drawstyle='steps-mid')
+            plt.plot(chisquare_slab.spectral_axis.value,modelline(velocityrange_chisquared),color='red')
+            pdb.set_trace()
             if transition in excludedlines[source] or goodness_of_fit >= 3:
                 print(f'\nExcluded line detected: {quantum_numbers[i]}, E_U: {euks[i]}, Freq: {line.to("GHz")}')
                 print(f'Goodness of fit: {goodness_of_fit}')
@@ -506,13 +510,23 @@ assert 'spw0' in datacubes[0], 'Cube list out of order'
 stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/',2:'/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/',3:'/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/',7:'/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/'}
 stdhome=stdhomedict[fnum]
 
-c2h5oh_sourcelocs={'DSi':'/aug2024_1_includesubstateinfilename/','DSii':'/firstattempt/'}
+targetworldcrds={'SgrB2S':[[0,0,0],[2.66835339e+02, -2.83961660e+01, 0]], 'DSi':[[0,0,0],[266.8316149,-28.3972040,0]], 'DSii':[[0,0,0],[266.8335363,-28.3963158,0]],'DSiii':[[0,0,0],[266.8332758,-28.3969269,0]],'DSiv':[[0,0,0],[266.8323834, -28.3954424,0]],'DSv':[[0,0,0],[266.8321331, -28.3976585, 0]],'DSVI':[[0,0,0],[266.8380037, -28.4050741,0]],'DSVII':[[0,0,0],[266.8426074, -28.4094401,0]],'DSVIII':[[0,0,0],[266.8418408, -28.4118242, 0]],'DSIX':[[0,0,0],[266.8477371, -28.4311386,0]],'DSX':[[0,0,0],[266.8452950, -28.4282608,0]]}
+targetworldcrd=targetworldcrds[source]
+
+c2h5oh_sourcelocs={'DSi':'/aug2024_3_excludelineslowerthancontinuumlevel/','DSii':'/firstattempt/'}
+contpath=reorgpath+'reprojectedcontinuum.fits'
+reprojcontfits=fits.open(contpath)
+reprojcont=reprojcontfits[0].data*u.Jy
+reprojcontrestfreq=225*u.GHz#manual addition 11/9/2022, wiggle room w/i GHz
+cntmbeam=radio_beam.Beam.from_fits_header(reprojcontfits[0].header)
+reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
 
 sourcelocs=c2h5oh_sourcelocs
 
 representativelines={'DSi':'14.0.14_2-13.1.13_2'}
-representativelws=measlinewidth#{'SgrB2S':(5*u.km/u.s),'DSi':(3*u.km/u.s),'DSii':(3*u.km/u.s),'DSiii':(3*u.km/u.s),'DSiv':(4*u.km/u.s),'DSv':(4*u.km/u.s),'DSVI':(3*u.km/u.s),'DSVII':(2.5*u.km/u.s),'DSVIII':(2.5*u.km/u.s),'DSIX':(5*u.km/u.s),'DSX':(4*u.km/u.s)}#{'SgrB2S':8*u.MHz,'DSi':3.6*u.MHz}#11MHz for ~10 km/s
-representativecubes={'SgrB2S':2,'DSi':2,'DSii':1,'DSiii':2,'DSiv':0,'DSv':1,'DSVI':1,'DSVII':1,'DSVIII':1,'DSIX':1,'DSX':1}#spwnumber
+representativelws=measlinewidth
+representativecubes={'SgrB2S':2,'DSi':2,'DSii':1,'DSiii':2,'DSiv':0,'DSv':1,'DSVI':1,'DSVII':1,'DSVIII':1,'DSIX':1,'DSX':1}
+
 
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
 nupperpath=sourcepath+'nuppers/'
@@ -578,7 +592,8 @@ catdir=CDMS.get_species_table()
 catdir_c2h5oh=catdir[catdir['tag'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
-excludedlines={'DSi':['30_3&27-30_2&28','14_2&12-13_1&12','8_4&4-7_4&3']}
+doublet=[]
+excludedlines={'DSi':['30.3.27_2-30.2.28_2','14.2.12_0-13.1.12_1','8.4.4_0-7.3.4_1']}
 restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':'','DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
@@ -629,12 +644,9 @@ for imgnum in range(len(datacubes)):
         
     velcube=cube.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=spwrestfreq)
     cube_unmasked=velcube.unmasked_data
-    
-    targetworldcrds={'SgrB2S':[[0,0,0],[2.66835339e+02, -2.83961660e+01, 0]], 'DSi':[[0,0,0],[266.8316149,-28.3972040,0]], 'DSii':[[0,0,0],[266.8335363,-28.3963158,0]],'DSiii':[[0,0,0],[266.8332758,-28.3969269,0]],'DSiv':[[0,0,0],[266.8323834, -28.3954424,0]],'DSv':[[0,0,0],[266.8321331, -28.3976585, 0]],'DSVI':[[0,0,0],[266.8380037, -28.4050741,0]],'DSVII':[[0,0,0],[266.8426074, -28.4094401,0]],'DSVIII':[[0,0,0],[266.8418408, -28.4118242, 0]],'DSIX':[[0,0,0],[266.8477371, -28.4311386,0]],'DSX':[[0,0,0],[266.8452950, -28.4282608,0]]}
     cube_w=cube.wcs
     stdwcs=WCS(stdimage[0].header)
-    
-    targetworldcrd=targetworldcrds[source]
+
     targetpixcrd=cube_w.all_world2pix(targetworldcrd,1,ra_dec_order=True)
     fullsize_targetpixcrd=stdwcs.wcs_world2pix(targetworldcrd,1,ra_dec_order=True)
     stdpixxcrd,stdpixycrd=int(round(fullsize_targetpixcrd[1][0])),int(round(fullsize_targetpixcrd[1][1]))
@@ -646,7 +658,7 @@ for imgnum in range(len(datacubes)):
     print(f'Flux position - x: {pixxcrd}/y: {pixycrd}')
     
     assert pixxcrd >= 0 and pixycrd >= 0, 'Negative pixel coords'
-    
+
     stdcutout=Cutout2D(stddata,(stdpixxcrd,stdpixycrd),(stdcutoutsize))
     assert np.shape(stdcutout)[0]==cube.shape[1], 'Standard deviation cutout size mismatch'
     
@@ -692,27 +704,19 @@ for imgnum in range(len(datacubes)):
     else:
         pass
 
-    #pdb.set_trace()
+    continuuminpix=reprojcont_K[pixcoords[0],pixcoords[1]]
     
-    freq_min=freqs[0]*(1+z)#215*u.GHz
-    #print(freq_max)
-    freq_max=freqs[(len(freqs)-1)]*(1+z)#235*u.GHz
+    freq_min=freqs[0]*(1+z)
+    freq_max=freqs[(len(freqs)-1)]*(1+z)
     
     assert freq_max > freq_min, 'Inverted spectral axis'
     print('Passed increasing spectral axis check')
-    #print(freq_min)
     linelist=['CDMS']
     
     print('Peforming Splatalogue queries')
-    maintable = CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)#utils.minimize_table(Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
-                                    #energy_max=1840, energy_type='eu_k',
-                                    #line_lists=linelist,
-                                    #show_upper_degeneracy=True))
+    maintable = CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)
     '''Needed for upper state degeneracies'''                                
-    sparetable=CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)#Splatalogue.query_lines(freq_min, freq_max, chemical_name=molecule,
-                                    #energy_max=1840, energy_type='eu_k',
-                                    #line_lists=linelist,
-                                    #show_upper_degeneracy=True)
+    sparetable=CDMS.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule='046524 C2H5OH,v=0',get_query_payload=False)
                                     
     
     print('Gathering CDMS table parameters')
@@ -723,7 +727,7 @@ for imgnum in range(len(datacubes)):
     elo_K=(((h*c)/elo_lambda)/k).to('K')
     elo_J=(elo_K*k).to('J')
     deltae=((h*maintable['FREQ'])/k).to('K')
-    euks=elo_K+deltae#maintable['EU_K']*u.K
+    euks=elo_K+deltae
     eujs=(euks*k).to('J')
     degeneracies=maintable['GUP']
     
@@ -748,7 +752,7 @@ for imgnum in range(len(datacubes)):
     cdmsfluxes=10**log10cdmsfluxes
     aijs=pickett_aul(cdmsfluxes,nus,degeneracies,elo_J,eujs,catdir_qrot300,T=300*u.K)
     
-    sys.exit()
+    #sys.exit()
     
     singlecmpntwidth=velocitytofreq(measlinewidth,spwrestfreq).to('GHz')#(0.00485/8)*u.GHz
     linewidth=representativelws#10*u.km/u.s#8*u.MHz
@@ -904,29 +908,6 @@ for key in spwdictkeys:
         #print(n_uerr)
     print('pixels looped, Nupper calcs complete\n')  
 
-'''
-for key in spwdictkeys:
-    transitionkeys=list(spwdict[key])
-    for transkey in range(len(transitionkeys)):
-        nupperimage_filepath=filepath2+'CH3OH~'+transitionkeys[transkey]+'.fits'
-        nuperrorimage_filepath=filepath2+'CH3OH~'+transitionkeys[transkey]+'error.fits'
-        if os.path.isfile(nupperimage_filepath):
-            print(f'{nupperimage_filepath} already exists')
-        elif os.path.isfile(nupperimage_filepath)==False:
-            nupperimgdata=nugsmap[:,:,transkey]
-            primaryhdu=fits.PrimaryHDU(nupperimgdata)
-            primaryhdu.header['UNIT']='cm-2'
-            hdul.writeto(nupperimage_filepath,overwrite=True)
-            hdul=fits.HDUList([primaryhdu])
-        elif os.path.isfile(nuperrorimage_filepath):
-            print(f'{nuperrorimage_filepath} already exists')
-        elif os.path.isfile(nuperrorimage_filepath)==False:
-            primaryhduerr=fits.PrimaryHDU(nuperrorimgdata)
-            primaryhduerr.header['UNIT']='cm-2'
-            hdulerr=fits.HDUList([primaryhduerr])
-            hdulerr.writeto(nuperrorimage_filepath)
-'''
-
 print('Setting up and executing model fit')
 texmap=np.empty((testyshape,testxshape))
 ntotmap=np.empty((testyshape,testxshape))
@@ -1076,7 +1057,7 @@ for y in range(testyshape):
                     plt.xlabel(r'$E_u$ (K)',fontsize=14)
                     plt.ylabel(r'log$_{10}$($N_u$/$g_u$)',fontsize=14)
                     plt.legend()
-                    plt.savefig((rotdiagfilename),dpi=100,overwrite=True)
+                    plt.savefig((rotdiagfilename),dpi=100)
                     plt.close()
                     print('Done.')
                     print(f'Diagram saved to {rotdiagfilename}')
@@ -1305,7 +1286,7 @@ ra.set_ticklabel(exclude_overlapping=True)
 dec.set_axislabel('Dec (J2000)',fontsize=14,minpad=-0.7)
 ax.tick_params(fontsize=14)
 cbar1=plt.colorbar(plottedtex,pad=0,label='K')#plt.colorbar()
-plt.savefig(saveimgpath,overwrite=True)
+plt.savefig(saveimgpath)
 plt.show()
 
 print('Cube-->core-->Texmap complete.')
