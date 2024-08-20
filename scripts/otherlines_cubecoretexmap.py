@@ -35,7 +35,7 @@ def round_to_1(x):
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
 
-source='DSi'
+source='DSii'
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7,'DSX':7,'DSXI':8}
 fnum=fields[source]
@@ -51,10 +51,10 @@ home=homes[fnum]#'/blue/adamginsburg/d.jeff/imaging_results/products/OctReimage/
 cubes=glob.glob(home+'*pbcor_line.fits')
 sourceregs={'SgrB2S':'fk5; box(266.8353410, -28.3962005, 0.0016806, 0.0016806)','DSi':'fk5; box(266.8316387, -28.3971867, 0.0010556, 0.0010556)','DSii':'fk5; box(266.8335363, -28.3963159, 0.0006389, 0.0006389)','DSiii':'fk5; box(266.8332758, -28.3969270, 0.0006944, 0.0006944)','DSiv':'fk5; box(266.8323834, -28.3954424, 0.0009000, 0.0009000)','DSv':'fk5; box(266.8321331, -28.3976585, 0.0005556, 0.0005556)','DSVI':'fk5; box(266.8380037, -28.4050741, 0.0017361, 0.0017361)','DSVII':'fk5; box(266.8426074, -28.4094401, 0.0020833, 0.0020833)', 'DSVIII':'fk5; box(266.8418408, -28.4118242, 0.0014028, 0.0014028)','DSIX':'fk5; box(266.8477371, -28.4311386, 0.0009583, 0.0009583)','DSX':'fk5; box(266.8452950, -28.4282608, 0.0017083, 0.0017083)','DSXI':'fk5; box(266.8404733, -28.4286378, 0.0013194, 0.0013194)'}
 region=sourceregs[source]
-outpath_base=f'/blue/adamginsburg/d.jeff/SgrB2DSminicubes/{source}/'
+outpath_base=f'/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSminicubes/{source}/'
 outstatpath_end={1:'OctReimage_K/',10:'field10originals_K/',2:'field2originals_K/',3:'field3originals_K/',7:'field7originals_K/',8:'field8originals_K/'}
 outpath=outpath_base+outstatpath_end[fnum]
-statfixpath_base='/blue/adamginsburg/d.jeff/SgrB2DSstatcontfix/'
+statfixpath_base='/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSstatcontfix/'
 statfixpath=statfixpath_base+outstatpath_end[fnum]
 
 regionparams=[float(val) for val in region[9:(len(region)-1)].split(', ')]
@@ -211,8 +211,8 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
         line_sigma=line_width/(2*np.sqrt(2*np.log(2)))
         line_fwhm_freq=velocitytofreq(line_fwhm,line)
         line_sigma_freq=velocitytofreq(line_sigma,line)
-        nu_upper=line+line_fwhm_freq
-        nu_lower=line-line_fwhm_freq
+        nu_upper=line+(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
+        nu_lower=line-(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
         print(f'Make spectral slab between {nu_lower} and {nu_upper}')
         slab=cube.spectral_slab(nu_upper,nu_lower)
         oldstyleslab=cube.spectral_slab((nu_upper-nu_offset),(nu_lower+nu_offset))
@@ -310,7 +310,7 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                     slabmom2.write(momentnfilenames[moment-1])
                     slabfwhm.write(fwhmfilename)
             pass
-        elif trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev and trad > continuuminpix:#*u.K:
+        elif trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev and trad > continuuminpix:
             chisquare_slab=slab_K.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
             
             vel_lineprofilesigma=line_sigma#measlinewidth/(2*np.sqrt(2*np.log(2)))
@@ -329,10 +329,13 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
             chisquared=np.sum((slabcutout_forchisquare-modelline(velocityrange_chisquared))**2/(targetspecK_stddev*np.ones(length_chisquareslab))).value/length_chisquareslab
             degrees_of_freedom=length_chisquareslab-2#we would be fitting Trot and Ntot
             goodness_of_fit=np.abs(np.sqrt(2*chisquared)-np.sqrt(2*degrees_of_freedom-1))
-            plt.plot(chisquare_slab.spectral_axis.value,chisquare_slab.value,drawstyle='steps-mid')
+            '''
+            plt.plot(chisquare_slab.spectral_axis.value,slabcutout_forchisquare.value,drawstyle='steps-mid')
             plt.plot(chisquare_slab.spectral_axis.value,modelline(velocityrange_chisquared),color='red')
+            plt.show()
             pdb.set_trace()
-            if transition in excludedlines[source] or goodness_of_fit >= 3:
+            '''
+            if transition in excludedlines[source] or goodness_of_fit >= 5:
                 print(f'\nExcluded line detected: {quantum_numbers[i]}, E_U: {euks[i]}, Freq: {line.to("GHz")}')
                 print(f'Goodness of fit: {goodness_of_fit}')
                 sigma1mom0=stdcutout.data*measlinewidth
@@ -350,18 +353,19 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                 kkmsstdarray=maskslabmom0
                 pass
             else:
+                print(f'Goodness of fit ({goodness_of_fit}) is sufficient')
                 print('Commence moment0 procedure\n')
-                #cubemask=BooleanArrayMask(mask=cubemaskarray,wcs=slab.wcs)
                 print(f'Create {quantum_numbers[i]} spatial-velocity mask')
+
+                slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
                 slab3sigmamask=slab > (3*stdcutout.data)
                 slab=slab.with_mask(slab3sigmamask)
                 slabspecax=slab.spectral_axis
                 slabmom1=slab.moment1()
-                slabfwhm=slab.linewidth_fwhm()#(7*u.MHz/line)*c.to('km s-1')#
+                slabfwhm=slab.linewidth_fwhm()
                 cubemask=(slabspecax[:,None,None] < (velocityfield_representative + fwhm_representative)[None,:,:]) & (slabspecax[:,None,None] > (velocityfield_representative - fwhm_representative)[None,:,:])
                 oldstyleslab=oldstyleslab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
-                #if imgnum > 0:
-                #    pdb.set_trace()
+
                 print('Masking spectral slab')
                 maskedslab=slab.with_mask(cubemask)
                 #momstart=time.time()
@@ -377,17 +381,13 @@ def linelooplte(line_list,line_width,iterations,quantum_numbers):
                     print(f'Value divided in half to compensate for line blending.\n')
                 else:
                     maskslabmom0=maskedslab.moment0()+contmom0
-                #momend=time.time()-momstart
-                #print(f'{quantum_numbers[i]} elapsed time: {time.strftime("%H:%M:%S", time.gmtime(momend))}')
+
                 print('\nComputing masking residuals')
                 mom0maskresiduals=maskslabmom0-slabmom0
                 print('\nSaving...')
-                #name='test'+str(i)
                 slabmom0.write((moment0filename),overwrite=True)
                 maskslabmom0.write((maskedmom0fn))
                 mom0maskresiduals.write((maskresidualfn))
-                #maskboolarr=BooleanArrayMask(mask=cubemask,wcs=slab.wcs)
-                #make_casa_mask(maskedslab,maskfn,append_to_image=False,add_stokes=False)
                 moment0beam=slabmom0.beam.value*u.sr
                 kkmsstdarray=stdcutout.data*fwhm_representative
                 if os.path.isfile(slabfilename):
@@ -513,7 +513,7 @@ stdhome=stdhomedict[fnum]
 targetworldcrds={'SgrB2S':[[0,0,0],[2.66835339e+02, -2.83961660e+01, 0]], 'DSi':[[0,0,0],[266.8316149,-28.3972040,0]], 'DSii':[[0,0,0],[266.8335363,-28.3963158,0]],'DSiii':[[0,0,0],[266.8332758,-28.3969269,0]],'DSiv':[[0,0,0],[266.8323834, -28.3954424,0]],'DSv':[[0,0,0],[266.8321331, -28.3976585, 0]],'DSVI':[[0,0,0],[266.8380037, -28.4050741,0]],'DSVII':[[0,0,0],[266.8426074, -28.4094401,0]],'DSVIII':[[0,0,0],[266.8418408, -28.4118242, 0]],'DSIX':[[0,0,0],[266.8477371, -28.4311386,0]],'DSX':[[0,0,0],[266.8452950, -28.4282608,0]]}
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'DSi':'/aug2024_3_excludelineslowerthancontinuumlevel/','DSii':'/firstattempt/'}
+c2h5oh_sourcelocs={'DSi':'/aug2024_5_goodnessoffit_lessorequalto_5/','DSii':'/aug2024_1_like_aug24-5_in_ds1/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -523,9 +523,9 @@ reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
 
 sourcelocs=c2h5oh_sourcelocs
 
-representativelines={'DSi':'14.0.14_2-13.1.13_2'}
+representativelines={'DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2'}
 representativelws=measlinewidth
-representativecubes={'SgrB2S':2,'DSi':2,'DSii':1,'DSiii':2,'DSiv':0,'DSv':1,'DSVI':1,'DSVII':1,'DSVIII':1,'DSIX':1,'DSX':1}
+representativecubes={'SgrB2S':'','DSi':2,'DSii':2,'DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}
 
 
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
@@ -593,8 +593,8 @@ catdir_c2h5oh=catdir[catdir['tag'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
 doublet=[]
-excludedlines={'DSi':['30.3.27_2-30.2.28_2','14.2.12_0-13.1.12_1','8.4.4_0-7.3.4_1']}
-restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':'','DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
+excludedlines={'DSi':['30.3.27_2-30.2.28_2','14.2.12_0-13.1.12_1','8.4.4_0-7.3.4_1'],'DSii':''}
+restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':'','DSiv':'','DSv':'','DSVI':'','DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
 rep_fwhm=representative_filename_base+'fwhm.fits'
@@ -942,11 +942,6 @@ for y in range(testyshape):
             if nugsmap[y,x,zed] <= 1e6 or np.isnan(nugsmap[y,x,zed]) or nugsmap[y,x,zed] >= 1e18:
                 continue
             elif nugsmap[y,x,zed]/nugserrormap[y,x,zed] == 1:
-                #print(f'Excluded line detected: {masterqns[z]}')
-                #print('Appending to exclusion lists')
-                #excludedqns.append(masterqns[zed])
-                #excludednuppers.append(nugsmap[y,x,zed])
-                #excludedeuks.append(mastereuks[zed])
                 pass
             else:
                 nupperstofit.append(nugsmap[y,x,zed])
@@ -1048,8 +1043,8 @@ for y in range(testyshape):
             if not np.isfinite(dobsTrot.value):
                 dobsTrot=1e5*u.K
 
-            if y >= 30 and y <=50:
-                if x >= 30 and x <= 50:
+            if y >= 20 and y <=30:
+                if x >= 20 and x <= 30:
                     plt.ioff()
                     plt.figure()
                     plt.errorbar(eukstofit,np.log10(nupperstofit),yerr=log10nuerr,fmt='o')
