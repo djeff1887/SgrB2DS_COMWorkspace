@@ -33,7 +33,7 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSi'
+source='DSVI'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -67,10 +67,11 @@ targetpix=pixdict[source]
 s_othermol_dshift_v={' CH3CHO ':67.45330305*u.km/u.s,' C2H5OH ':67.45330305*u.km/u.s,' CH3OCHO ':67.45330305*u.km/u.s,' C(18)O ':69.551850256*u.km/u.s,' 13CH3OH ':67.5*u.km/u.s,' SO ':70.5*u.km/u.s}#' CH3OH ':68352.680424
 ds2_othermol_dshift_v={' CH3OCHO ':49*u.km/u.s,' CH3CHO ':49*u.km/u.s,' C2H5OH ':49.3*u.km/u.s}#47831.782945392486 m / s
 ds5_othermol_dshift_v={}
+ds6_othermol_dshift_v={' C2H5OH ':51*u.km/u.s}
 othermol_dopplershift={' CH3CHO ':0.000225,' C2H5OH ':0.000225,' CH3OCHO ':0.000225,' C(18)O ':0.000232}
 ds9_othermol_dshift_v={}
 
-sourceothers={'SgrB2S':s_othermol_dshift_v,'DSi':{},'DSii':ds2_othermol_dshift_v,'DSiii':{},'DSiv':{},'DSv':ds5_othermol_dshift_v,'DSVI':{},'DSVII':{},'DSVIII':{},'DSIX':ds9_othermol_dshift_v,'DS10':{}}
+sourceothers={'SgrB2S':s_othermol_dshift_v,'DSi':{},'DSii':ds2_othermol_dshift_v,'DSiii':{},'DSiv':{},'DSv':ds5_othermol_dshift_v,'DSVI':ds6_othermol_dshift_v,'DSVII':{},'DSVIII':{},'DSIX':ds9_othermol_dshift_v,'DS10':{}}
 othermol_dshift_v=sourceothers[source]
 
 z=dopplershifts[source]
@@ -126,7 +127,7 @@ sourcecolumns={'SgrB2S':sgrb2scolumns,'DSi':dsicolumns, 'DSii':ds2columns,'DSiii
 
 columndict=sourcecolumns[source]
 
-molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey']
+molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey','grey']
 spwmoldict={}
 dummylist=[]
 p1firstmolline={}#list(np.ones(len(columndict.keys())))
@@ -370,7 +371,11 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             intertau=lte_molecule.line_tau(testT, cntot, c_qrot_partfunc, deg, restline, euj, aij) 
             est_tau=(intertau*phi_nu).to('')
             trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
-            #print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
+            '''
+            if molecule == ' H2S ':
+                print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
+                pdb.set_trace()
+            '''
             if trad >= 3*error:
                 modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
                 modelspec+=modelline
@@ -403,7 +408,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             lineprofilesigma=modlinewidth/2*np.sqrt(2*np.log(2))
             phi_nu=lineprofile(sigma=lineprofilesigma,nu_0=restline,nu=restline)
             
-            methntot=nch3oh_at_pix#columndict[' CH3OH ']
+            methntot=columndict[' CH3OH ']#nch3oh_at_pix
             est_nupper=nupper_estimated(methntot,deg,qrot_partfunc,euj,testT).to('cm-2')
             intertau=lte_molecule.line_tau(testT, methntot, qrot_partfunc, deg, restline, euj, aij)
             est_tau=(intertau*phi_nu).to('')
@@ -431,11 +436,11 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         else:
             linedetections.update({' CH3OH ':tempch3ohdetections})
             
-        if firstmolline[' CH3OH '] and len(linedetections[molecule]) != 0:
+        if firstmolline[' CH3OH '] and len(linedetections[' CH3OH ']) != 0:
             plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green',label=' CH3OH ')
             firstmolline[' CH3OH ']=0
             print('yay')
-        elif len(linedetections[molecule]) > 0:
+        elif len(linedetections[' CH3OH ']) > 0:
             plt.plot(freqs.to('GHz').value,methmodelspec(freqs.to('GHz')),drawstyle='steps-mid',linestyle='--',color='green')
             print('yayy')
     
@@ -479,7 +484,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        #plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_individualizedspectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_testingweirdcontinuum_{source}_{img}_individualizedspectra.pdf')
         plt.show()
         
         #plt.rcParams['figure.dpi'] = mode
@@ -493,5 +498,5 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        #plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}_{img}_compositespectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_testingweirdcontinuum_{source}_{img}_compositespectra.pdf')
         plt.show()
