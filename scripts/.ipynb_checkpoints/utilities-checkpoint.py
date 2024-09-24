@@ -9,6 +9,7 @@ from astroquery.jplspec import JPLSpec
 from astropy.modeling.functional_models import Linear1D
 from astropy.modeling import fitting
 from math import log10, floor
+import pdb
 
 c=cnst.c*u.m/u.s
 k=cnst.k*u.J/u.K
@@ -19,6 +20,9 @@ f=1
 Tbg=2.7355*u.K
 mu_a=(0.896e-18*u.statC*u.cm).to('cm(3/2) g(1/2) s-1 cm')
 dGC=8.277*u.kpc
+
+linemodelhome='/blue/adamginsburg/d.jeff/SgrB2DS_COMAnalysis/linemodels/'
+linemodelversion='firstrelease'
 
 incompleteqrot=[' C2H5OH ',' H2S ',' CH3OCH3 ',' 13CH3OH ']
 
@@ -110,7 +114,7 @@ def rjequivtemp(nu,T_ex):
 def N_u(nu,Aij,velocityintegrated_intensity_K,velint_intK_err):#(ntot,qrot,gu,eu_J,T_ex):#taken from pyspeckit documentation https://pyspeckit.readthedocs.io/en/latest/lte_molecule_model.html?highlight=Aij#lte-molecule-model
     nuppercalc=((8*np.pi*k*nu**2)/(h*c**3*Aij))*velocityintegrated_intensity_K
     nuppererr=((8*np.pi*k*nu**2)/(h*c**3*Aij))*velint_intK_err#(velint_intK_err.to('K km s-1')/velocityintegrated_intensity_K.to('K km s-1'))*nuppercalc
-    return nuppercalc.to('cm-2'),nuppererr.to('cm-2')#ntot/(qrot*np.exp(eu_J/(k*T_ex)))
+    return nuppercalc.to('cm-2'), nuppererr.to('cm-2')#ntot/(qrot*np.exp(eu_J/(k*T_ex)))
     
 def KtoJ(T):#Convert from excitation temperature (Kelvin) to energy (Joules)
     return k*T
