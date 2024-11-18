@@ -65,7 +65,7 @@ def make_tickstrings(list_of_float):
             string=str(scaled)+end
         list_of_strings.append(string)
     return list_of_strings
-sourcedict={'DSi':'/aug2024_5_goodnessoffit_lessorequalto_5/','DSii':'/aug2024_2_fixrotdiagloop/'}
+sourcedict={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/sep2024_2_removechisquared/'}
 set=0
 colordict={0:('trot','inferno','texmap_3sigma_allspw_withnans_weighted.fits'),1:('mom0','bone',"CH3OH~5_1-4_2E1vt0_masked.fits"),2:('nupper','Blues_r'),3:('detections','CMRmap',"ch3ohdetections0_3sigma_allspw_withnans_weighted.fits"),4:('abundance','viridis','bootstrap_ch3ohabundance_3sigma_ntotintercept_bolocamfeather_smoothedtobolocam.fits'),5:('nh2','Greys_r','bootstrap_nh2map_3sigma_bolocamfeather_smoothedtobolocam.fits')}
 mode=colordict[set][0]
@@ -131,7 +131,7 @@ ax=plt.subplot(projection=hduwcs,slices=sliced)
 ra=ax.coords[0]
 dec=ax.coords[1]
 if mode == 'trot':
-    vmaxdict={'SgrB2S':625,'DSi':306,'DSii':225,'DSiii':351,'DSiv':398,'DSv':357,'DSVI':427,'DSVII':282,'DSVIII':300,'DSIX':252}
+    vmaxdict={'SgrB2S':625,'DSi':306,'DSii':250,'DSiii':351,'DSiv':398,'DSv':357,'DSVI':427,'DSVII':282,'DSVIII':300,'DSIX':252}
     img=ax.imshow(np.squeeze(hdu.data),vmax=vmaxdict[source],vmin=25,interpolation=None, cmap=cm)#, norm=mpl.colors.LogNorm())#vmaxcntm=0.005, vmaxdsi=300 (no min value),vmaxsgrb2s=605 tmin=10 (try no min value), ntotmax=6.26e17, dsintotmax=2.21e17
 elif mode == 'abundance':
     abundadjust={'SgrB2S':5e-8,'DSiii':5e-9,'DSiv':9e-8,'DSv':9e-9,'DSVI':6e-8,'DSVII':2e-8,'DSVIII':3e-8,'DSIX':5e-8}

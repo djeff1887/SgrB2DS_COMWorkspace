@@ -24,12 +24,12 @@ dGC=8.277*u.kpc
 linemodelhome='/blue/adamginsburg/d.jeff/SgrB2DS_COMAnalysis/linemodels/'
 linemodelversion='firstrelease'
 
-incompleteqrot=[' C2H5OH ',' H2S ',' CH3OCH3 ',' 13CH3OH ']
+incompleteqrot=[' C2H5OH ',' H2S ',' CH3OCH3 ',' 13CH3OH ',' HC3N ', ' c-HCCCH ',' CH3NCO, vb = 0 ',' SO ','HC3N v7=1', ' H213CO ']
 
 linelistdict={' CH3OH ':'JPL',' CH3OCHO ':'JPL',' CH3CHO ':'JPL',' C2H5OH ':'CDMS',' CH3OCH3 ':'JPL',' DCN ':'JPL',' OCS ':'CDMS',' 13CH3OH ':'CDMS',' H2CO ':'CDMS',' HC3N ':'CDMS',' C(18)O ':'CDMS',' 13CS ':'CDMS',' SO2 ':'CDMS',' NH2CHO ':'JPL',' HNCO ':'CDMS',' SO ':'CDMS', ' SiO ':'CDMS',' H2S ':'CDMS',' c-HCCCH ':'CDMS', ' HC3N v7=1 ':'CDMS',' H213CO ':'CDMS',' 13CH3CN ':'CDMS',' CH3COOH ':'CDMS',' t-HCOOH ':'CDMS',' CH3O13CHO ':'TopModel',' HNO3 ':'JPL',' CH3O13CHO, vt = 0, 1':'CDMS','NH2CN':'JPL','CH2CHCN':'CDMS','CH3OCHO v=1':'JPL','18OCS':'CDMS','CH3NCO':'CDMS','CH3CH2CN':'CDMS','NH2CO2CH3 v=1 ':'JPL',' HOCN ':'CDMS',' 13CH3CCH ':'JPL'}
 
 jplnamelist={' CH3OCHO ':'CH3OCHO',' CH3CHO ':'CH3CHO',' CH3COCH3 ':'CH3COCH3',' CH2CHCN ':'C2H3CN',}#' CH3OH ':'CH3OH'
-cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',' CH3OH ':'CH3OH, vt=0-2',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0', ' DCN ':'DCN, v=0', ' OCS ':'OCS, v=0',' H2CO ':'H2CO', ' HC3N ':'HC3N, v=0',' SO2 ':'SO2, v=0',' HNCO ':'HNCO',' SO ':'SO, v=0',' SiO ':'SiO, v=0-10',' H2S ':'H2S',' CH3NCO, vb = 0 ':'CH3NCO, vb=0',' CH3SH ':'CH3SH,v=0-2', ' HOCO+ ':'HOCO+'}#' CH3OCHO ':'CH2(OH)CHO, v=0',' CH3CHO ':'CH3CHOHCHO',
+cdmsnamelist={' 13CH3OH ':'C-13-H3OH, vt=0,1',' C(18)O ':'CO-18',' 13CS ':'C-13-S, v=0,1',' NH2CHO ':'HC(O)NH2, v=0',' c-HCCCH ':'c-C3H2','HC3N v7=1':'HC3N, v7=1',' H213CO ':'H2C-13-O',' 13CH3CN ':'C-13-H3CN, v=0',' 18OCS ':'O-18-CS',' N17O ':'N-15-O-17',' CH3CH2CN ':'C2H5CN, v=0', ' 13CH3OCH3 ':'C-13-H3OCH3',' CH3OH ':'CH3OH, vt=0-2',' C2H5OH ':'C2H5OH,v=0',' CH3OCH3 ':'CH3OCH3, v=0', ' DCN ':'DCN, v=0', ' OCS ':'OCS, v=0',' H2CO ':'H2CO', ' HC3N ':'HC3N, v=0',' SO2 ':'SO2, v=0',' HNCO ':'HNCO',' SO ':'SO, v=0',' SiO ':'SiO, v=0-10',' H2S ':'H2S',' CH3NCO, vb = 0 ':'CH3NCO, vb=0',' CH3SH ':'CH3SH,v=0-2', ' HOCO+ ':'HOCO+',' 13CH2CHCN ':'H2C-13-CHCN, v=0',' CH3CDO ':'CH3CDO, vt=0,1',' a-H2C=CHOH ':'a-H2C=CHOH'}#' CH3OCHO ':'CH2(OH)CHO, v=0',' CH3CHO ':'CH3CHOHCHO',
 
 cdmsproblemchildren=[' OCS ',' 13CS ',' C(18)O ',' HNCO ',' SO ',' HC3N ',' CH3NCO, vb=0 ',' CH3CH2CN ',' 13CH3CN ']
 problemchildren2=[' CH3NCO, vb=0 ']
@@ -53,13 +53,15 @@ ch3oh_sourcedict={'SgrB2S':'/sep2023-5removelasttorsionalline/','DSi':'/sep2023-
 ch3oh_excludedlines={'SgrB2S':['7_6-7_7E1vt1','14_6-14_7E1vt1','11_6-11_7E1vt1','15_6-15_7E1vt1','9_6-9_7E1vt1','13_6-13_7E1vt1','12_6-12_7E1vt1','8_6-8_7E1vt1','16_6-16_7E1vt1','10_6-10_7E1vt1'],'DSi':['11_6-11_7E1vt1','25_3-24_4E1vt0','23_5-22_6E1vt0','14_6-14_7E1vt1','7_6-7_7E1vt1','15_6-15_7E1vt1','16_6-16_7E1vt1','9_6-9_7E1vt1','10_6-10_7E1vt1','11_6-11_7E1vt1','12_6-12_7E1vt1','13_6-13_7E1vt1'],'DSii':['7_6-7_7E1vt1','9_6-9_7E1vt1','14_6-14_7E1vt1','10_6-10_7E1vt1','13_6-13_7E1vt1','11_6-11_7E1vt1','23_5-22_6E1vt0'],'DSiii':'','DSiv':['8_6-8_7E1vt1','7_6-7_7E1vt1','9_6-9_7E1vt1','10_6-10_7E1vt1','11_6-11_7E1vt1','12_6-12_7E1vt1','13_6-13_7E1vt1','14_6-14_7E1vt1','6_1--7_2-vt1'],'DSv':'','DSVI':["6_1--7_2-vt1",'14_6-14_7E1vt1','10_6-10_7E1vt1','9_6-9_7E1vt1','11_6-11_7E1vt1','13_6-13_7E1vt1','12_6-12_7E1vt1','13_3--14_4-vt2','13_3+-14_4+vt2','7_6-7_7E1vt1','16_6-16_7E1vt1','8_6-8_7E1vt1','17_6-17_7E1vt1'],'DSVII':["6_1--7_2-vt1"],'DSVIII':'','DSIX':''}
 
 
-c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s)}
+#c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(60*u.km/u.s),'DSVI':(51*u.km/u.s)}
 ch3oh_dopplershifts={'SgrB2S':0.00023099669803283718,'DSi':0.00018761288466593936,'DSii':0.00016236367659115043,'DSiii':0.000176,'DSiv':0.00018225233186845314,'DSv':0.0001838576164010067,'DSVI':0.0001661613132158407,'DSVII':0.00016236727257136008,'DSVIII':0.0001661546432045067,'DSIX':0.00015787296484373237}
+#c2h5oh_vlsrs={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(60*u.km/u.s),'DSVI':(51*u.km/u.s)}
+c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(59.5*u.km/u.s),'DSiv':(54.648*u.km/u.s),'DSVI':(51*u.km/u.s)}#all taken from peaks of representative lines
 
 masterdopplershifts={' CH3OH ':ch3oh_dopplershifts,' C2H5OH ':c2h5oh_dopplershifts}
 
 excludedlines={'ch3oh':ch3oh_excludedlines}
-dopplershifts={'ch3oh':ch3oh_dopplershifts}
+#dopplershifts={'ch3oh':ch3oh_dopplershifts}
 sourcedict={'ch3oh':ch3oh_sourcedict}
 
 targetworldcrds={'SgrB2S':[[0,0,0],[266.8351718,-28.3961210, 0]], 'DSi':[[0,0,0],[266.8316149,-28.3972040,0]], 'DSii':[[0,0,0],[266.8335363,-28.3963158,0]],'DSiii':[[0,0,0],[266.8332758,-28.3969269,0]],'DSiv':[[0,0,0],[266.8323834, -28.3954424,0]],'DSv':[[0,0,0],[266.8321331, -28.3976585, 0]],'DSVI':[[0,0,0],[266.8380037, -28.4050741,0]],'DSVII':[[0,0,0],[266.8426074, -28.4094401,0]],'DSVIII':[[0,0,0],[266.8418408, -28.4118242, 0]],'DSIX':[[0,0,0],[266.8477371, -28.4311386,0]],'DS10':[[0,0,0],[266.8373798, -28.4009340,0]],'DS11':[[0,0,0],[266.8374572, -28.3996894, 0]],'DSX':[[0,0,0],[266.8452950, -28.4282608,0]]}

@@ -19,6 +19,8 @@ from manualspeciesabundances import *
 from pyspeckit.spectrum.models import lte_molecule
 from astropy.table import QTable
 import sys
+from astropy.stats import bootstrap
+import astropy.stats
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
@@ -29,7 +31,7 @@ def round_to_1(x):
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
 
-source='DSi'
+source='DSiv'
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7,'DSX':7,'DSXI':8}
 fnum=fields[source]
@@ -74,8 +76,7 @@ fluxerrorpath=reorgpath+'errorimgs/std/*.fits'
 ch3oh_trotpath=reorgpath+'bootstrap_texmap_3sigma_allspw_withnans_weighted.fits'
 pixcoords=pixdict[source]
 
-c2h5oh_vlsrs={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSVI':(51*u.km/u.s)}
-vlsr=c2h5oh_vlsrs[source]
+vlsr=c2h5oh_dopplershifts[source]
 z=vlsr/(c.to('km s-1'))
 print(f'Doppler shift: {z} / {vlsr}\n')
 
@@ -101,108 +102,115 @@ def linelooplte(line_list,line_fwhm):
     print('\nlinelooperLTE...')
     for line in line_list:
         unsliced_transition=line['QNs']
-        print(f'\nStart {unsliced_transition} moment0 procedure')
-        temptransdict={}
-        reffreq=line['ReferenceFrequency']
-        restfreq=line['RestFrequency']
-        line_sigma=line_fwhm/(2*np.sqrt(2*np.log(2)))
-        line_fwhm_freq=velocitytofreq(line_fwhm,reffreq)
-        line_sigma_freq=velocitytofreq(line_sigma,reffreq)
-        nu_upper=reffreq+(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
-        nu_lower=reffreq-(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
-        if (max(cube.spectral_axis) - nu_upper) <= cube_edge_boundary or (nu_lower - min(cube.spectral_axis)) <= cube_edge_boundary:
-            print(f'{quantum_numbers[i]} is too close to the cube edges. Skipping\n')
+        if unsliced_transition in excludedlines[source]:
+            print(f'Skipping excluded line: {unsliced_transition}')
+            excludedline_index=np.where(safelines['QNs']==unsliced_transition)[0][0]
+            safelines.remove_row(excludedline_index)
+            #pdb.set_trace()
             continue
-        print(f'Make spectral slab between {nu_lower} and {nu_upper}')
-        slab=cube.spectral_slab(nu_upper,nu_lower)
-        
-        print('Slicing quantum numbers')
-        transition=ethanol_qnsforfiles(line['QNs'])#qn_replace(quantum_numbers[i])
-        moment0filename=home+f'{nospace_molecule}~'+transition+'_raw.fits'
-        maskedmom0fn=home+f'{nospace_molecule}~'+transition+'_masked.fits'
-        maskresidualfn=home+f'{nospace_molecule}~'+transition+'_residual.fits'
-        maskedmom0errfn=home+f'{nospace_molecule}~'+transition+'_error.fits'
-        slabfilename=slabpath+f'{nospace_molecule}~'+transition+'_slab.fits'
-        maskedslabfn=slabpath+f'{nospace_molecule}~'+transition+'_maskedslab.fits'
-        maskfn=slabpath+f'{nospace_molecule}~'+transition+'_mask.fits'
-        peakintfn=home+f'{nospace_molecule}~'+transition+'_peakint.fits'
-        moment1filename=sourcepath+f'mom1/{nospace_molecule}~'+transition+'.fits'
-        moment2filename=sourcepath+f'mom2/{nospace_molecule}~'+transition+'_var.fits'
-        fwhmfilename=sourcepath+f'mom2/{nospace_molecule}~'+transition+'_fwhm.fits'
-        masterslicedqns.append(transition)
-        #masterqns.append(line['QNs'])
-        if os.path.isfile(maskedmom0fn):
-            print(f'{moment0filename} already exists.')
-            isfile_hdu=fits.open(maskedmom0fn)
-            isfileheader=isfile_hdu[0].header
-            isfilemom0=fits.getdata(maskedmom0fn)*u.K*u.km/u.s
-            isfilestdflux=stddata#This is confusing, notation-wise, but I'm leaving it this way for now since it's consistent between the two forks in the loop. For future reference: isfilestdflux is the error on the measured brightnesstemp in K, whereas isfilemom0 pulls from the moment0 maps and is in K km/s
-            isfilemom0err=fits.getdata(maskedmom0errfn)*u.K*u.km/u.s
-            mastermom0s.update({unsliced_transition:isfilemom0})
-            #masterslicedqns.append(transition)
-            mastermom0errors.update({unsliced_transition:isfilemom0err})
-            headers_for_output_maps.update({unsliced_transition:isfileheader})
-            print('\nDictionaries populated for this transition.')
-        else: #trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev and trad > continuuminpix:
-            #print(f'Goodness of fit ({goodness_of_fit}) is sufficient')
-            print('Commence moment0 procedure\n')
-            print(f'Create {line['QNs']} spatial-velocity mask')
-
-            slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=reffreq)
-            slab3sigmamask=slab > (3*stdcutout.data)
-            slab=slab.with_mask(slab3sigmamask)
-            slabspecax=slab.spectral_axis
-            slabmom1=slab.moment1()
-            slabmom2=slab.moment2()
-            slabfwhm=slab.linewidth_fwhm()
-            cubemask=(slabspecax[:,None,None] < (velocityfield_representative + fwhm_representative)[None,:,:]) & (slabspecax[:,None,None] > (velocityfield_representative - fwhm_representative)[None,:,:])
-            #oldstyleslab=oldstyleslab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
-
-            print('Masking spectral slab')
-            maskedslab=slab.with_mask(cubemask)
-            print('Computing unmasked moment0...\n')
-            slabmom0=slab.moment0()
-            print('Computing masked moment0...\n')
-            contmom0=reprojcont_K*slabfwhm#continuum sanity check
-            if transition in doublet:
-                maskslabmom0=(maskedslab.moment0()+contmom0)/2
-                print(f'\nDoublet line identified: {quantum_numbers[i]}')
-                print(f'Value divided in half to compensate for line blending.\n')
-            else:
-                maskslabmom0=maskedslab.moment0()+contmom0
-            print('Computing peak intensity')
-            maskedpeakint=maskedslab.max(axis=0)
-
-            print('\nSaving...')
-            slabmom0.write(moment0filename)
-            maskslabmom0.write(maskedmom0fn)
-            kkmsstdarray=stdcutout.data*fwhm_representative
-
-            slab.write(slabfilename)
-            print(f'Slab written to {slabfilename}.')
-            maskedslab.write(maskedslabfn)
-            print(f'Masked slab written to {maskedslabfn}.\n')
-            print('Creating moment0 error Primary HDU')
-            kkmshdu=fits.PrimaryHDU(kkmsstdarray.value)
-            kkmshdu.header=maskedslab.header
-            kkmshdu.header['BUNIT']='K km s-1'
-            print('Wrapping moment0 error Primary HDU in HDUList')
-            kkmshdul=fits.HDUList([kkmshdu])
-            print(f'Writing moment0 error to {maskedmom0errfn}')
-            kkmshdul.writeto(maskedmom0errfn)
-            print(f'Saving moment1 to {moment1filename}\n')
-            slabmom1.write(moment1filename)
-            print(f'Saving moment 2s to {moment2filename} and {fwhmfilename}\n')
-            slabmom2.write(moment2filename)
-            slabfwhm.write(fwhmfilename)
-            print(f'Saving peak intensity to {peakintfn}')
-            maskedpeakint.write(peakintfn)
+        else:
+            print(f'\nStart {unsliced_transition} moment0 procedure')
+            temptransdict={}
+            reffreq=line['ReferenceFrequency']
+            restfreq=line['RestFrequency']
+            line_sigma=line_fwhm/(2*np.sqrt(2*np.log(2)))
+            line_fwhm_freq=velocitytofreq(line_fwhm,reffreq)
+            line_sigma_freq=velocitytofreq(line_sigma,reffreq)
+            nu_upper=reffreq+(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
+            nu_lower=reffreq-(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
+            if (max(cube.spectral_axis) - nu_upper) <= cube_edge_boundary or (nu_lower - min(cube.spectral_axis)) <= cube_edge_boundary:
+                print(f'{quantum_numbers[i]} is too close to the cube edges. Skipping\n')
+                continue
+            print(f'Make spectral slab between {nu_lower} and {nu_upper}')
+            slab=cube.spectral_slab(nu_upper,nu_lower)
             
-            mastermom0s.update({unsliced_transition:maskslabmom0})
-            #mastereuks.append(euks[i].value)
-            mastermom0errors.update({unsliced_transition:kkmsstdarray})
-            headers_for_output_maps.update({unsliced_transition:maskslabmom0.header})
-            print(f'{line['QNs']} calculations complete.\n')
+            print('Slicing quantum numbers')
+            transition=ethanol_qnsforfiles(line['QNs'])#qn_replace(quantum_numbers[i])
+            moment0filename=home+f'{nospace_molecule}~'+transition+'_raw.fits'
+            maskedmom0fn=home+f'{nospace_molecule}~'+transition+'_masked.fits'
+            maskresidualfn=home+f'{nospace_molecule}~'+transition+'_residual.fits'
+            maskedmom0errfn=home+f'{nospace_molecule}~'+transition+'_error.fits'
+            slabfilename=slabpath+f'{nospace_molecule}~'+transition+'_slab.fits'
+            maskedslabfn=slabpath+f'{nospace_molecule}~'+transition+'_maskedslab.fits'
+            maskfn=slabpath+f'{nospace_molecule}~'+transition+'_mask.fits'
+            peakintfn=home+f'{nospace_molecule}~'+transition+'_peakint.fits'
+            moment1filename=sourcepath+f'mom1/{nospace_molecule}~'+transition+'.fits'
+            moment2filename=sourcepath+f'mom2/{nospace_molecule}~'+transition+'_var.fits'
+            fwhmfilename=sourcepath+f'mom2/{nospace_molecule}~'+transition+'_fwhm.fits'
+            masterslicedqns.append(transition)
+            #masterqns.append(line['QNs'])
+            if os.path.isfile(maskedmom0fn):
+                print(f'{moment0filename} already exists.')
+                isfile_hdu=fits.open(maskedmom0fn)
+                isfileheader=isfile_hdu[0].header
+                isfilemom0=fits.getdata(maskedmom0fn)*u.K*u.km/u.s
+                isfilestdflux=stddata#This is confusing, notation-wise, but I'm leaving it this way for now since it's consistent between the two forks in the loop. For future reference: isfilestdflux is the error on the measured brightnesstemp in K, whereas isfilemom0 pulls from the moment0 maps and is in K km/s
+                isfilemom0err=fits.getdata(maskedmom0errfn)*u.K*u.km/u.s
+                mastermom0s.update({unsliced_transition:isfilemom0})
+                #masterslicedqns.append(transition)
+                mastermom0errors.update({unsliced_transition:isfilemom0err})
+                headers_for_output_maps.update({unsliced_transition:isfileheader})
+                print('\nDictionaries populated for this transition.')
+            else: #trad >= 3*targetspecK_stddev and peak_amplitude >= 3* targetspecK_stddev and trad > continuuminpix:
+                #print(f'Goodness of fit ({goodness_of_fit}) is sufficient')
+                print('Commence moment0 procedure\n')
+                print(f'Create {line['QNs']} spatial-velocity mask')
+    
+                slab=slab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=reffreq)
+                slab3sigmamask=slab > (3*stdcutout.data)
+                slab=slab.with_mask(slab3sigmamask)
+                slabspecax=slab.spectral_axis
+                slabmom1=slab.moment1()
+                slabmom2=slab.moment2()
+                slabfwhm=slab.linewidth_fwhm()
+                cubemask=(slabspecax[:,None,None] < (velocityfield_representative + fwhm_representative)[None,:,:]) & (slabspecax[:,None,None] > (velocityfield_representative - fwhm_representative)[None,:,:])
+                #oldstyleslab=oldstyleslab.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=lines[i])
+    
+                print('Masking spectral slab')
+                maskedslab=slab.with_mask(cubemask)
+                print('Computing unmasked moment0...\n')
+                slabmom0=slab.moment0()
+                print('Computing masked moment0...\n')
+                contmom0=reprojcont_K*slabfwhm#continuum sanity check
+                if transition in doublet:
+                    maskslabmom0=(maskedslab.moment0()+contmom0)/2
+                    print(f'\nDoublet line identified: {quantum_numbers[i]}')
+                    print(f'Value divided in half to compensate for line blending.\n')
+                else:
+                    maskslabmom0=maskedslab.moment0()+contmom0
+                print('Computing peak intensity')
+                maskedpeakint=maskedslab.max(axis=0)
+    
+                print('\nSaving...')
+                slabmom0.write(moment0filename)
+                maskslabmom0.write(maskedmom0fn)
+                kkmsstdarray=stdcutout.data*fwhm_representative
+    
+                slab.write(slabfilename)
+                print(f'Slab written to {slabfilename}.')
+                maskedslab.write(maskedslabfn)
+                print(f'Masked slab written to {maskedslabfn}.\n')
+                print('Creating moment0 error Primary HDU')
+                kkmshdu=fits.PrimaryHDU(kkmsstdarray.value)
+                kkmshdu.header=maskedslab.header
+                kkmshdu.header['BUNIT']='K km s-1'
+                print('Wrapping moment0 error Primary HDU in HDUList')
+                kkmshdul=fits.HDUList([kkmshdu])
+                print(f'Writing moment0 error to {maskedmom0errfn}')
+                kkmshdul.writeto(maskedmom0errfn)
+                print(f'Saving moment1 to {moment1filename}\n')
+                slabmom1.write(moment1filename)
+                print(f'Saving moment 2s to {moment2filename} and {fwhmfilename}\n')
+                slabmom2.write(moment2filename)
+                slabfwhm.write(fwhmfilename)
+                print(f'Saving peak intensity to {peakintfn}')
+                maskedpeakint.write(peakintfn)
+                
+                mastermom0s.update({unsliced_transition:maskslabmom0})
+                #mastereuks.append(euks[i].value)
+                mastermom0errors.update({unsliced_transition:kkmsstdarray})
+                headers_for_output_maps.update({unsliced_transition:maskslabmom0.header})
+                print(f'{line['QNs']} calculations complete.\n')
     print('lines looped.\n')
 #Check what linelist molecule uses and pull molecular parameters from linelist
 linelist=linelistdict[molecule]
@@ -253,7 +261,7 @@ stdhome=stdhomedict[fnum]
 
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'DSi':'/sep2024_1_usesafelines/','DSii':'/sep2024_1_usesafelines/','DSVI':'/sep2024_2_removechisquared/'}
+c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/nov2024_1_firstrun_removesDS2exclusions/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/sep2024_2_removechisquared/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -263,11 +271,11 @@ reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
 
 sourcelocs=c2h5oh_sourcelocs
 
-representativelines={'DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','DSVI':'14.0.14_2-13.1.13_2'}
+representativelines={'DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiv':'14.0.14_2-13.1.13_2','DSVI':'14.0.14_2-13.1.13_2'}
 representativelws=measlinewidth
-representativecubes={'SgrB2S':'','DSi':2,'DSii':2,'DSiii':'','DSiv':'','DSv':'','DSVI':2,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}
+representativecubes={'SgrB2S':'','DSi':2,'DSii':2,'DSiii':2,'DSiv':2,'DSv':'','DSVI':2,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}
 
-
+excludedlines={'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)']}
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
 nupperpath=sourcepath+'nuppers/'
 stdpath=sourcepath+'errorimgs/std/'
@@ -318,7 +326,7 @@ catdir_c2h5oh=catdir[catdir['tag'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
 doublet=[]
-restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':'','DSiv':'','DSv':'','DSVI':230.9913834*u.GHz,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
+restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':230.9913834*u.GHz,'DSiv':230.9913834*u.GHz,'DSv':'','DSVI':230.9913834*u.GHz,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
 rep_fwhm=representative_filename_base+'fwhm.fits'
@@ -452,7 +460,8 @@ else:
 print('Begin fitting procedure\nCompute N_uppers')
 nupper_gmaps={}
 error_nupper_gmaps={}
-
+master_nupperfilepaths=[]
+master_errornupperfilepaths=[]
 for count, transition in enumerate(safelines):
     current_qns=transition['QNs']
     current_deg=transition['Degeneracy']
@@ -470,6 +479,8 @@ for count, transition in enumerate(safelines):
         error_nupper_gmaps.update({current_qns:error_nupperg})
         nupperimgexists=True
         nuperrorimgexists=True
+        master_nupperfilepaths.append(nupperimage_filepath)
+        master_errornupperfilepaths.append(nuperrorimage_filepath)
     elif not nupperimgexists:
         nupper,error_nupper=N_u(transition['RestFrequency'],transition['Aij'],mastermom0s[current_qns],
                                         mastermom0errors[current_qns]) 
@@ -486,6 +497,7 @@ for count, transition in enumerate(safelines):
             primaryhdu.header['BUNIT']='cm-2'
             hdul=fits.HDUList([primaryhdu])
             hdul.writeto(nupperimage_filepath,overwrite=True)
+            master_nupperfilepaths.append(nupperimage_filepath)
         if not nuperrorimgexists:
             nuperrorimgdata=error_nupperg.value#nugserrormap[:,:,pixelzcoord_nuperr]
             primaryhduerr=fits.PrimaryHDU(nuperrorimgdata)
@@ -495,6 +507,7 @@ for count, transition in enumerate(safelines):
             primaryhduerr.header['BUNIT']='cm-2'
             hdulerr=fits.HDUList([primaryhduerr])
             hdulerr.writeto(nuperrorimage_filepath)
+            master_errornupperfilepaths.append(nuperrorimage_filepath)
 
 print('Nupper calcs complete\n')  
 print('Setting up and executing model fit')
@@ -512,8 +525,14 @@ texsnrmap=np.empty((yshape,xshape))
 ntotsnrmap=np.zeros((yshape,xshape))
 numtransmap=np.empty((yshape,xshape))
 snr=3
+
 print(f'Starting rotational {molecule} diagram loops')
+centers={'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40]}
+bootstraps=True
+midloop_rotdiagrams=True
+
 for y in range(yshape):
+    print(f'Starting row {y} of {yshape}') 
     for x in range(xshape):
         linemod=models.Linear1D(slope=1.0,intercept=14)
         fit=fitting.LinearLSQFitter()
@@ -551,29 +570,67 @@ for y in range(yshape):
             fit_lin=fit(linemod,eukstofit,np.log10(nuppergstofit),weights=weightstofit)
             linemod_euks=np.linspace(min(eukstofit),max(safelines['Eupper'].value),100)#Goes out to the max Eupper because these values are used for plotting
             obsTrot=-np.log10(np.e)/(fit_lin.slope)
-            qrot_partfunc=qrot(obsTrot)
             obsNtot=qrot_partfunc*10**(fit_lin.intercept)
-            
-            A=np.stack((eukstofit,np.ones_like(eukstofit)),axis=1)
-            C=np.diagflat(log10variances)
-            atc_1a=np.dot(np.dot(A.T, np.linalg.inv(C)), A)
-            if np.linalg.det(atc_1a) == 0:
-                #print(f'Singular C matrix detected in pixel {y,x}')
-                m_unc=np.nan
+            if bootstraps:
+                bslist=[]
+                for nug,euk,weight,var in zip(np.log10(nuppergstofit),eukstofit,weightstofit,log10variances):#10
+                    bslist.append((nug,euk,weight,var))
+                
+                numboots=1000
+                bootresult=bootstrap(np.array(bslist),numboots)
+                
+                bootlines=[]
+                bootTrots=[]
+                bootNtots=[]#The fitted ntots
+                bootIntercepts=[]#The fitted interecepts
+                bootSlopes=[]
+                for boot in bootresult:
+                    tempfit=fit(linemod,boot[:,1],boot[:,0],weights=boot[:,2])
+                    bootlines.append(tempfit)
+                for line in bootlines:
+                    tempbootTrot=-np.log10(np.e)/(line.slope)
+                    tempbootslope=line.slope.value
+                    tempbootNtot=qrot_partfunc*10**(line.intercept)
+                    tempbootintNtot=line.intercept.value
+                    if line.slope >= 0:#tempbootTrot >= 1000 or tempbootTrot <= 0:
+                        continue
+                    else:
+                        bootTrots.append(tempbootTrot)
+                        bootNtots.append(tempbootNtot)
+                        bootIntercepts.append(tempbootintNtot)
+                        bootSlopes.append(tempbootslope)
+                
+                bootstrap_error_Trot=astropy.stats.mad_std(bootTrots)
+                slope_bootstd=astropy.stats.mad_std(bootSlopes)
+                madstd_interceptfits=astropy.stats.mad_std(bootIntercepts)
+                bootstrap_error_Ntot=astropy.stats.mad_std(bootNtots)
+
+                dobsTrot=bootstrap_error_Trot
+                dobsNtot=bootstrap_error_Ntot
+                sigTrot=(obsTrot/dobsTrot)
+                sigNtot=(obsNtot/dobsNtot)
+            '''
             else:
-                covmat = np.linalg.inv(atc_1a)
-                m_unc = covmat[0,0]**0.5
-                b_unc = covmat[1,1]**0.5
-            
-            dobsTrot=np.abs(np.abs(m_unc/fit_lin.slope)*obsTrot*u.K)
-            dobsNtot=np.abs(qrot_partfunc*10**(fit_lin.intercept)*(np.log(10)*b_unc))*u.cm**-2
-            sigTrot=(obsTrot*u.K/dobsTrot).to('')
-            sigNtot=(obsNtot*u.cm**-2/dobsNtot).to('')
-            
+                A=np.stack((eukstofit,np.ones_like(eukstofit)),axis=1)
+                C=np.diagflat(log10variances)
+                atc_1a=np.dot(np.dot(A.T, np.linalg.inv(C)), A)
+                if np.linalg.det(atc_1a) == 0:
+                    #print(f'Singular C matrix detected in pixel {y,x}')
+                    m_unc=np.nan
+                else:
+                    covmat = np.linalg.inv(atc_1a)
+                    m_unc = covmat[0,0]**0.5
+                    b_unc = covmat[1,1]**0.5
+                
+                dobsTrot=np.abs(np.abs(m_unc/fit_lin.slope)*obsTrot*u.K)
+                dobsNtot=np.abs(qrot_partfunc*10**(fit_lin.intercept)*(np.log(10)*b_unc))*u.cm**-2
+                sigTrot=(obsTrot*u.K/dobsTrot).to('')
+                sigNtot=(obsNtot*u.cm**-2/dobsNtot).to('')
+            '''
             texmap[y,x]=obsTrot
             ntotmap[y,x]=obsNtot
-            texerrormap[y,x]=dobsTrot.to('K').value
-            ntoterrmap[y,x]=dobsNtot.value
+            texerrormap[y,x]=dobsTrot
+            ntoterrmap[y,x]=dobsNtot
             texsnrmap[y,x]=sigTrot
             ntotsnrmap[y,x]=sigNtot
                 
@@ -587,36 +644,32 @@ for y in range(yshape):
             else:
                 ntotsigclipmap[y,x]=np.nan
 
-            tk='$T_{rot}$'
-            ntot='log$_{10}(N_{tot})$'
-            cm2='cm$^{-2}$'
-            #strdobsntot=str(dobsNtot.value)[0]
-            if not np.isfinite(dobsNtot.value) or dobsNtot <= 0 or obsNtot == 0:
-                val_dntot='nan'#np.nan
-                if not np.isfinite(obsNtot) or obsNtot <= 0:
-                    val_ntot=np.nan
-                else:
-                    val_ntot=round(np.log10(obsNtot))
-            else:
-                val_dntot=round_to_1(dobsNtot.value/(1*10**int(np.log10(obsNtot))))
-                val_ntot=round(np.log10(obsNtot),1)
+            if midloop_rotdiagrams:
+                tk='$T_{rot}$'
+                ntot='log$_{10}(N_{tot})$'
+                cm2='cm$^{-2}$'
 
-            if not np.isfinite(dobsTrot.value):
-                dobsTrot=1e5*u.K
-
-            if y >= 30 and y <=50:
-                if x >= 30 and x <= 50:
-                    rotdiagfilename=rotdiagpath+f'rotdiag_pixel_{y}-{x}.png'
-                    plt.ioff()
-                    plt.figure()
-                    plt.errorbar(eukstofit,np.log10(nuppergstofit),yerr=convert_linear_error_to_log10_error,fmt='o')
-                    plt.plot(linemod_euks,fit_lin(linemod_euks),label=(f'{tk}: {int(round(obsTrot, 0))} $\pm$ {int(round(dobsTrot.value,0))} K\n{ntot}: {val_ntot} $\pm$ {val_dntot} '))
-                    plt.xlabel(r'$E_u$ (K)',fontsize=14)
-                    plt.ylabel(r'log$_{10}$($N_u$/$g_u$)',fontsize=14)
-                    plt.legend()
-                    plt.savefig((rotdiagfilename),dpi=100)
-                    plt.close()
-                    print(f'Diagram saved to {rotdiagfilename}')
+                if np.isfinite(obsTrot) and np.isfinite(obsNtot) and np.isfinite(dobsTrot) and np.isfinite(dobsNtot):
+                    if y >= centers[source][0] and y <=centers[source][1]:
+                        if x >= centers[source][0] and x <= centers[source][1]:
+                            plot_error_Ntot=round((dobsNtot/obsNtot),1)
+                            val_ntot=round(np.log10(obsNtot),1)
+                            rotdiagfilename=rotdiagpath+f'rotdiag_pixel_{y}-{x}.png'
+                            plt.ioff()
+                            plt.figure()
+                            plt.errorbar(eukstofit,np.log10(nuppergstofit),yerr=convert_linear_error_to_log10_error,
+                                     fmt='o')
+                            plt.plot(linemod_euks,fit_lin(linemod_euks),label=(f'{tk}: {int(obsTrot)} $\pm$ {int(dobsTrot)} K\n{ntot}: {val_ntot} $\pm$ {plot_error_Ntot}'))
+                            
+                            for linmod in bootlines:
+                                plt.plot(linemod_euks,linmod(linemod_euks),color='black',alpha=0.03,zorder=0)
+                                
+                            plt.xlabel(r'$E_u$ (K)',fontsize=14)
+                            plt.ylabel(r'log$_{10}$($N_u$/$g_u$)',fontsize=14)
+                            plt.legend()
+                            plt.savefig((rotdiagfilename),dpi=100)
+                            plt.close()
+                            print(f'Diagram saved to {rotdiagfilename}')
 
 plt.ion()
 #detectnum=0
@@ -712,9 +765,9 @@ print(f'Saving ntot snr map at {ntotsnrpath}\n')
 hdulntotsnr.writeto(ntotsnrpath,overwrite=True)
 
 print('Saving table of used lines\n')
-
+safelines.add_columns([master_nupperfilepaths,master_errornupperfilepaths],names=['MeasuredNupperPath','MeasuredNupperErrorPath'])
 eukqns=safelines#QTable([mastereuks,masterqns,masterlines,masterdegens], names=['Eupper','QNs','Reference Frequency','Degeneracy'], descriptions=['','',f'z={vlsr}',''])#np.column_stack((mastereuks,masterqns,masterlines,ordereddegens))
-eukqns.write(sourcepath+'mastereuksqnsfreqsdegens.fits',overwrite=True)
+eukqns.write(sourcepath+'table_of_used_lines_and_parameters.fits',overwrite=True)
 #np.savetxt(sourcepath+'mastereuksqnsfreqsdegens.txt',eukqns,fmt='%s',header=f'Methanol transitions, excitation temperatures, and degeneracies used in this folder. Temperatures in units of K, frequencies are redshifted ({z}/{(z*c).to("km s-1")}) and in Hz.\nExcluded lines: {excludedlines[source]}')
 
 '''This wing of the code plots up the temperature and ntot maps'''

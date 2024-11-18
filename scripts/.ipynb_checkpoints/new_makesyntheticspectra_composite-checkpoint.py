@@ -33,7 +33,8 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSii'
+source='DSiv'
+figureversion='testingnewcontinuum_2'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -49,12 +50,6 @@ m=b_0**2/(a_0*c_0)
 Tbg=2.7355*u.K
 cdms_catdir=CDMS.get_species_table()
 jpl_catdir=JPLSpec.get_species_table()
-
-trotdict={'SgrB2S':300*u.K,'DSi':300*u.K,'DSii':150*u.K,'DSiii':150*u.K,'DSiv':150*u.K,'DSv':100*u.K,'DSVI':300*u.K,'DSVII':200*u.K,'DSVIII':215*u.K,'DSIX':150*u.K,'DS10':150*u.K}
-
-testT=trotdict[source]
-#qrot_partfunc=partfunc(testT)#Q_rot_asym(testT).to('')
-
 R_i=1
 kappa=((2*b_0)-a_0-c_0)/(a_0-c_0)
 f=1
@@ -97,6 +92,7 @@ fwhmmap=fits.getdata(fwhmpath)*u.km/u.s
 nch3ohmap=fits.getdata(nch3ohpath)*u.cm**-2
 
 testT=texmapdata[targetpix[0],targetpix[1]]#350*u.K
+print(f'Rotational temperature: {testT}')
 fwhm_at_pix=fwhmmap[targetpix[0],targetpix[1]]
 nch3oh_at_pix=nch3ohmap[targetpix[0],targetpix[1]]
 #print(fwhm_at_pix)
@@ -119,7 +115,6 @@ linewidth=fwhm_at_pix#2.5*u.km/u.s#2.5 km/s is ideal for DSVI
 print(f'Absolute model line width: {linewidth}\n')
 
 weeds=[' CH3OCHO ', ' CH3CHO ']
-cdmsproblemchildren=['OCS','13CS','C(18)O','HNCO','SO','HC3N','CH3NCO, vb=0','CH3CH2CN']
 problemchildren2=['CH3NCO, vb=0']
 
 sourcecolumns={'SgrB2S':sgrb2scolumns,'DSi':dsicolumns, 'DSii':ds2columns,'DSiii':ds3columns,'DSiv':ds4columns,
@@ -127,7 +122,7 @@ sourcecolumns={'SgrB2S':sgrb2scolumns,'DSi':dsicolumns, 'DSii':ds2columns,'DSiii
 
 columndict=sourcecolumns[source]
 
-molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey','grey']
+molcolors=['red','cyan','orange','brown','deepskyblue','darkviolet','yellow','pink','gold','darkkhaki','silver','blue','lime','blue','grey','plum','fuchsia','darkcyan','magenta','deeppink','gold','palegreen','goldenrod','indigo','dodgerblue','mediumpurple','yellow','red','grey','grey','black']
 spwmoldict={}
 dummylist=[]
 p1firstmolline={}#list(np.ones(len(columndict.keys())))
@@ -251,6 +246,11 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             scatdir_qrot300=10**species_catdir['QLOG1']
             jplname=f'{species_catdirtag} {jplnamelist[molecule]}'
             species_table= JPLSpec.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=jplname,get_query_payload=False)
+            if molecule == ' CH3COCH3 ':
+                print(jplname)
+                print(species_catdir)
+                print(species_table)
+                print(f'Partition function: {c_qrot(testT)}')
             if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
                 print(f'No transitions for {molecule} in {img}. Continue')
                 continue
@@ -327,22 +327,26 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 caijs=pickett_aul(ccdmsfluxes,cnus,cdegs,celo_J,ceujs,scatdir_qrot300,T=300*u.K)
         
         #sys.exit()
-        if molecule in incompleteqrot:
-            print(f'{molecule} has an incomplete partition function')
-            print('Estimating by linear fit to log-log Qrot/T relation')
-            poly=Linear1D(slope=150, intercept=10)
-            fitter=fitting.LinearLSQFitter()
-
-            catdirkeys=list(species_catdir.keys())
-            lgqrots_spec_catdir=np.array(list(species_catdir[catdirkeys[3:]].as_array()[0]))
-            nonnanqrots=list(np.where(np.isnan(lgqrots_spec_catdir)==False)[0])
-            temperatures_nonnanqrots=cdms_catdir_qrot_temps[nonnanqrots]
-
-            fitinput_xvalues=temperatures_nonnanqrots#np.linspace(3,300,1000)*u.K
-            power_law_fit=fitter(poly,np.log10(temperatures_nonnanqrots),np.log10(c_qrot(temperatures_nonnanqrots)))
-            logintercept=10**power_law_fit.intercept
-            logTs=logintercept*fitinput_xvalues**power_law_fit.slope
-            c_qrot_partfunc=fit_qrot(logintercept,testT,power_law_fit)
+        if np.isfinite(c_qrot(testT))==False or c_qrot(testT) == 0:
+            if molecule in incompleteqrot:
+                print(f'{molecule} has an incomplete partition function')
+                print('Estimating by linear fit to log-log Qrot/T relation')
+                poly=Linear1D(slope=150, intercept=10)
+                fitter=fitting.LinearLSQFitter()
+    
+                catdirkeys=list(species_catdir.keys())
+                lgqrots_spec_catdir=np.array(list(species_catdir[catdirkeys[3:]].as_array()[0]))
+                nonnanqrots=list(np.where(np.isnan(lgqrots_spec_catdir)==False)[0])
+                temperatures_nonnanqrots=cdms_catdir_qrot_temps[nonnanqrots]
+    
+                fitinput_xvalues=temperatures_nonnanqrots#np.linspace(3,300,1000)*u.K
+                power_law_fit=fitter(poly,np.log10(temperatures_nonnanqrots),np.log10(c_qrot(temperatures_nonnanqrots)))
+                logintercept=10**power_law_fit.intercept
+                logTs=logintercept*fitinput_xvalues**power_law_fit.slope
+                c_qrot_partfunc=fit_qrot(logintercept,testT,power_law_fit)
+            else:
+                print(f'\nNew incomplete qrot molecule - {molecule}')
+                sys.exit()
         else:
             c_qrot_partfunc=c_qrot(testT)
         
@@ -372,9 +376,9 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             est_tau=(intertau*phi_nu).to('')
             trad=t_rad(tau_nu=est_tau,ff=f,nu=restline,T_ex=testT).to('K')
             '''
-            if molecule == ' H2S ':
+            if molecule == ' CH3COCH3 ':
                 print(f'{qn} - {trad} - {np.log10(est_nupper.value)} - {deg} - {aij} - {euj} - {line} - {modlinewidth}')
-                pdb.set_trace()
+                #pdb.set_trace()
             '''
             if trad >= 3*error:
                 modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
@@ -484,7 +488,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_testingweirdcontinuum_{source}_{img}_individualizedspectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_{figureversion}_{source}_{img}_individualizedspectra.pdf')
         plt.show()
         
         #plt.rcParams['figure.dpi'] = mode
@@ -498,5 +502,5 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_testingweirdcontinuum_{source}_{img}_compositespectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_{figureversion}_{source}_{img}_compositespectra.pdf')
         plt.show()
