@@ -33,8 +33,8 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSiv'
-figureversion='testingnewcontinuum_2'
+source='DSVI'
+figureversion='250K_'#'testingnewcontinuum_2'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -91,7 +91,7 @@ texmapdata=fits.getdata(texmappath)*u.K
 fwhmmap=fits.getdata(fwhmpath)*u.km/u.s
 nch3ohmap=fits.getdata(nch3ohpath)*u.cm**-2
 
-testT=texmapdata[targetpix[0],targetpix[1]]#350*u.K
+testT=250*u.K#texmapdata[targetpix[0],targetpix[1]]#350*u.K
 print(f'Rotational temperature: {testT}')
 fwhm_at_pix=fwhmmap[targetpix[0],targetpix[1]]
 nch3oh_at_pix=nch3ohmap[targetpix[0],targetpix[1]]

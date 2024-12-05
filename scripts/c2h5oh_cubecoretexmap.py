@@ -31,7 +31,7 @@ def round_to_1(x):
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
 
-source='DSiv'
+source='DSiii'
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7,'DSX':7,'DSXI':8}
 fnum=fields[source]
@@ -84,7 +84,9 @@ print('Setting input LTE parameters')
 sourcefwhm=fits.getdata(fwhmpath)*u.km/u.s
 trotmap=fits.getdata(trotmappath)*u.K
 measTrot=trotmap[pixcoords[0],pixcoords[1]]
-measlinewidth=sourcefwhm[pixcoords[0],pixcoords[1]]
+if source == 'DSiii':
+else:
+    measlinewidth=sourcefwhm[pixcoords[0],pixcoords[1]]
 measTrot=trotmap[pixcoords[0],pixcoords[1]]
 testT=measTrot
 testntot=sourcecolumns[source][molecule]
@@ -261,7 +263,7 @@ stdhome=stdhomedict[fnum]
 
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/nov2024_1_firstrun_removesDS2exclusions/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/sep2024_2_removechisquared/'}
+c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_1_fixdopplershift/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/nov2024_2_removes560Kline/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -275,7 +277,7 @@ representativelines={'DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','D
 representativelws=measlinewidth
 representativecubes={'SgrB2S':'','DSi':2,'DSii':2,'DSiii':2,'DSiv':2,'DSv':'','DSVI':2,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}
 
-excludedlines={'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)']}
+excludedlines={'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSVI':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)',]}# '35(4,31)(2)-35(3,32)(2)']}
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
 nupperpath=sourcepath+'nuppers/'
 stdpath=sourcepath+'errorimgs/std/'
@@ -527,7 +529,7 @@ numtransmap=np.empty((yshape,xshape))
 snr=3
 
 print(f'Starting rotational {molecule} diagram loops')
-centers={'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40]}
+centers={'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40],'DSVI':[55,66]}
 bootstraps=True
 midloop_rotdiagrams=True
 

@@ -56,7 +56,7 @@ ch3oh_excludedlines={'SgrB2S':['7_6-7_7E1vt1','14_6-14_7E1vt1','11_6-11_7E1vt1',
 #c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(60*u.km/u.s),'DSVI':(51*u.km/u.s)}
 ch3oh_dopplershifts={'SgrB2S':0.00023099669803283718,'DSi':0.00018761288466593936,'DSii':0.00016236367659115043,'DSiii':0.000176,'DSiv':0.00018225233186845314,'DSv':0.0001838576164010067,'DSVI':0.0001661613132158407,'DSVII':0.00016236727257136008,'DSVIII':0.0001661546432045067,'DSIX':0.00015787296484373237}
 #c2h5oh_vlsrs={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(60*u.km/u.s),'DSVI':(51*u.km/u.s)}
-c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(59.5*u.km/u.s),'DSiv':(54.648*u.km/u.s),'DSVI':(51*u.km/u.s)}#all taken from peaks of representative lines
+c2h5oh_dopplershifts={'DSi':(55.3*u.km/u.s),'DSii':(49.3*u.km/u.s),'DSiii':(52.267*u.km/u.s),'DSiv':(54.648*u.km/u.s),'DSVI':(51*u.km/u.s)}#all taken from peaks of representative lines
 
 masterdopplershifts={' CH3OH ':ch3oh_dopplershifts,' C2H5OH ':c2h5oh_dopplershifts}
 
