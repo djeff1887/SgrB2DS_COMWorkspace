@@ -116,8 +116,8 @@ def linelooplte(line_list,line_fwhm):
             line_sigma=line_fwhm/(2*np.sqrt(2*np.log(2)))
             line_fwhm_freq=velocitytofreq(line_fwhm,reffreq)
             line_sigma_freq=velocitytofreq(line_sigma,reffreq)
-            nu_upper=reffreq+(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
-            nu_lower=reffreq-(line_fwhm_freq/2)#Make sure to divide fwhm by 2 so that the total frequency width is one FWHM
+            nu_upper=reffreq+(line_fwhm_freq/2)#Am testing increasing the widths of the slabs, just to make sure we're not unneccessarily omitting signal. Reset back to dividing by 2 if this doesn't work
+            nu_lower=reffreq-(line_fwhm_freq/2)#Am testing increasing the widths of the slabs, just to make sure we're not unneccessarily omitting signal. Reset back to dividing by 2 if this doesn't work
             if (max(cube.spectral_axis) - nu_upper) <= cube_edge_boundary or (nu_lower - min(cube.spectral_axis)) <= cube_edge_boundary:
                 print(f'{quantum_numbers[i]} is too close to the cube edges. Skipping\n')
                 continue
@@ -261,7 +261,7 @@ stdhome=stdhomedict[fnum]
 
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_1_fixdopplershift/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/nov2024_2_removes560Kline/'}
+c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/nov2024_2_removes560Kline/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -414,8 +414,8 @@ for imgnum in range(len(datacubes)):
         
         repstdcutoutsize=round(((float(regiondims)*u.deg)/stdcellsize).to('').value)
         repstdcutout=Cutout2D(repstdmain_data,(repstdmain_xcrd,repstdmain_ycrd), repstdcutoutsize)
-        upperfreq=reffreq_repline+velocitytofreq(representativelws,reffreq_repline)
-        lowerfreq=reffreq_repline-velocitytofreq(representativelws,reffreq_repline)
+        upperfreq=reffreq_repline+velocitytofreq(representativelws,reffreq_repline)#Pretty sure I neglected to divide the width by 2 here, may need to do so later on
+        lowerfreq=reffreq_repline-velocitytofreq(representativelws,reffreq_repline)#Pretty sure I neglected to divide the width by 2 here, may need to do so later on
         print(f'Creating spectral slab between {lowerfreq} and {upperfreq}')
         spectralslab_representative=repcube.spectral_slab(lowerfreq,upperfreq)
         spectralslab_representative=spectralslab_representative.with_spectral_unit((u.km/u.s),velocity_convention='radio',rest_value=reffreq_repline)
@@ -440,7 +440,7 @@ for imgnum in range(len(datacubes)):
     linesabovemin=safelines['ReferenceFrequency']>=min(cube.spectral_axis)
     lines_in_spw=safelines[linesbelowmax*linesabovemin]
     
-    linewidth=representativelws
+    linewidth=fwhm_representative[pixcoords[0],pixcoords[1]]#representativelws
     linewidth_freq=velocitytofreq(linewidth,restfreq_representativeline[source])
 
     linelooplte(lines_in_spw,linewidth)

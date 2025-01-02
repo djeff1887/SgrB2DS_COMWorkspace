@@ -20,6 +20,7 @@ f=1
 Tbg=2.7355*u.K
 mu_a=(0.896e-18*u.statC*u.cm).to('cm(3/2) g(1/2) s-1 cm')
 dGC=8.277*u.kpc
+jeff2024_dGC=8.34*u.kpc#per Meng et al. 2019 https://www.aanda.org/articles/aa/pdf/2019/10/aa35920-19.pdf, pretty sure actual source is Reid+2014
 
 linemodelhome='/blue/adamginsburg/d.jeff/SgrB2DS_COMAnalysis/linemodels/'
 linemodelversion='firstrelease'
