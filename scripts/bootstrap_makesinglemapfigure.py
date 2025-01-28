@@ -65,18 +65,21 @@ def make_tickstrings(list_of_float):
             string=str(scaled)+end
         list_of_strings.append(string)
     return list_of_strings
-sourcedict={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/sep2024_2_removechisquared/'}
-set=0
-colordict={0:('trot','inferno','texmap_3sigma_allspw_withnans_weighted.fits'),1:('mom0','bone',"CH3OH~5_1-4_2E1vt0_masked.fits"),2:('nupper','Blues_r'),3:('detections','CMRmap',"ch3ohdetections0_3sigma_allspw_withnans_weighted.fits"),4:('abundance','viridis','bootstrap_ch3ohabundance_3sigma_ntotintercept_bolocamfeather_smoothedtobolocam.fits'),5:('nh2','Greys_r','bootstrap_nh2map_3sigma_bolocamfeather_smoothedtobolocam.fits')}
+sourcedict={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/',
+                   'DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/',
+                   'DSVI':'/nov2024_1_removesDS2exclusions/'}
+set=4
+colordict={0:('trot','inferno','texmap_3sigma_allspw_withnans_weighted.fits'),1:('mom0','bone',"CH3OH~5_1-4_2E1vt0_masked.fits"),2:('nupper','Blues_r'),3:('detections','CMRmap',"ch3ohdetections0_3sigma_allspw_withnans_weighted.fits"),4:('abundance','viridis','Xc2h5oh_3sigma_bolocamfeather_smoothedtobolocam.fits','XEthanolMaps'),5:('nh2','Greys_r','bootstrap_nh2map_3sigma_bolocamfeather_smoothedtobolocam.fits')}
 mode=colordict[set][0]
 color=colordict[set][1]
 pathsuffix=colordict[set][2]
+repodirectory=colordict[set][3]
 
 print(f'Mode: {mode}')
 cm= copy.copy(mpl.cm.get_cmap(color))#mom0 bone, temperature inferno, nupper Blues_r, detections CMRmap, abundance cividis
 cm.set_bad('black')
 dGC=8.34*u.kpc#per Meng et al. 2019 https://www.aanda.org/articles/aa/pdf/2019/10/aa35920-19.pdf
-source='DSii'#os.getenv('source')#
+source='DSVI'#os.getenv('source')#
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7}
 fnum=fields[source]
@@ -88,16 +91,11 @@ tblfile='pacman_sep2023revolution/nov92023_allpropertytable.fits'
 
 infile=home+source+sourcedict[source]+pathsuffix
 
-savefigbase=f'/blue/adamginsburg/d.jeff/repos/C2H5OH_SgrB2DS/figures/{source}'
+savefigbase=f'/blue/adamginsburg/d.jeff/repos/668d89885ebb5bfe9c01ccfc/figures/SgrB2DS_EthanolMethanol/{repodirectory}/{source}'
 savefighome=savefigbase+sourcedict[source]
 
 if not os.path.exists(savefighome):
-    makedir=input(f'Create savefigpath {savefighome}?  (y/n)')
-    if makedir=='y':
-        os.makedirs(savefighome)
-    elif makedir=='n':
-        print('Edit script to have correct savefighome')
-        sys.exit()#pdb.set_trace()
+    os.makedirs(savefighome)
 else:
     print(f'Savefigpath {savefighome} already exists')
     pass 
@@ -134,8 +132,8 @@ if mode == 'trot':
     vmaxdict={'SgrB2S':625,'DSi':306,'DSii':250,'DSiii':351,'DSiv':398,'DSv':357,'DSVI':427,'DSVII':282,'DSVIII':300,'DSIX':252}
     img=ax.imshow(np.squeeze(hdu.data),vmax=vmaxdict[source],vmin=25,interpolation=None, cmap=cm)#, norm=mpl.colors.LogNorm())#vmaxcntm=0.005, vmaxdsi=300 (no min value),vmaxsgrb2s=605 tmin=10 (try no min value), ntotmax=6.26e17, dsintotmax=2.21e17
 elif mode == 'abundance':
-    abundadjust={'SgrB2S':5e-8,'DSiii':5e-9,'DSiv':9e-8,'DSv':9e-9,'DSVI':6e-8,'DSVII':2e-8,'DSVIII':3e-8,'DSIX':5e-8}
-    maxadjust={'SgrB2S':1.13e-6,'DSi':9.3e-7,'DSiv':7.9e-7,'DSVI':6.1e-7,'DSVII':3.88e-7,'DSVIII':5.9e-7}#'DSiii':7e-8,
+    abundadjust={'DSi':5e-8,'DSii':5e-8,'DSiv':1e-7,'DSiii':5e-9,'DSiv':9e-8,'DSVI':5e-8,}#
+    maxadjust={'DSi':2.5e-7,'DSii':1.3e-7,'DSiv':3.5e-7,'DSVI':4e-7,}#'DSiii':7e-8,vmin=1e-7,vmax=3.5e-7)
     if source in list(abundadjust.keys()) and source in list(maxadjust.keys()):
         print('bothadjust')
         maxfix=maxadjust[source]
@@ -263,7 +261,7 @@ ax.add_patch(hdubeamplot)
 hdubeamplot.set_facecolor('gray')
 hdubeamplot.set_edgecolor('white')
 
-labeldict={0:'T$_{K}$ (K)',1:r'Intensity (K km s$^{-1}$)',2:r'N$_{upper}$ (cm$^{-2}$)',3:'$n_{transition}$',4:'X(CH$_3$OH)',5:'$N$(H$_2$) (cm$^{-2}$)'}
+labeldict={0:'T$_{K}$ (K)',1:r'Intensity (K km s$^{-1}$)',2:r'N$_{upper}$ (cm$^{-2}$)',3:'$n_{transition}$',4:'X(C$_2$H$_5$OH)',5:'$N$(H$_2$) (cm$^{-2}$)'}
 ax.axis(lims)
 ra.set_axislabel('RA (J2000)',fontsize=14,minpad=0.9)
 ra.set_ticklabel(exclude_overlapping=True)
@@ -271,7 +269,7 @@ dec.set_axislabel('Dec (J2000)',fontsize=14,minpad=-0.7)
 ax.tick_params(fontsize=14)
 cbar1=plt.colorbar(img,label=labeldict[set],pad=0)
 docbartickfix=['DSii','DSIX']
-skipcbartickfix=['SgrB2S']
+skipcbartickfix=['SgrB2S','DSi','DSii','DSiv']
 
 if mode == 'abundance':
     if maxfix:
