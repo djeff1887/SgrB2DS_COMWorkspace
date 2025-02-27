@@ -68,8 +68,8 @@ def make_tickstrings(list_of_float):
 sourcedict={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/',
                    'DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/',
                    'DSVI':'/nov2024_1_removesDS2exclusions/'}
-set=4
-colordict={0:('trot','inferno','texmap_3sigma_allspw_withnans_weighted.fits'),1:('mom0','bone',"CH3OH~5_1-4_2E1vt0_masked.fits"),2:('nupper','Blues_r'),3:('detections','CMRmap',"ch3ohdetections0_3sigma_allspw_withnans_weighted.fits"),4:('abundance','viridis','Xc2h5oh_3sigma_bolocamfeather_smoothedtobolocam.fits','XEthanolMaps'),5:('nh2','Greys_r','bootstrap_nh2map_3sigma_bolocamfeather_smoothedtobolocam.fits')}
+set=5
+colordict={0:('trot','inferno','texmap_3sigma_allspw_withnans_weighted.fits','TemperatureMaps'),1:('mom0','bone',"CH3OH~5_1-4_2E1vt0_masked.fits"),2:('nupper','Blues_r'),3:('detections','CMRmap',"ch3ohdetections0_3sigma_allspw_withnans_weighted.fits"),4:('abundance','viridis','Xc2h5oh_3sigma_bolocamfeather_smoothedtobolocam.fits','XEthanolMaps'),5:('ntot','cividis','ntotmap_allspw_withnans_weighted_useintercept_3sigma.fits','NtotMaps'),}
 mode=colordict[set][0]
 color=colordict[set][1]
 pathsuffix=colordict[set][2]
@@ -79,15 +79,17 @@ print(f'Mode: {mode}')
 cm= copy.copy(mpl.cm.get_cmap(color))#mom0 bone, temperature inferno, nupper Blues_r, detections CMRmap, abundance cividis
 cm.set_bad('black')
 dGC=8.34*u.kpc#per Meng et al. 2019 https://www.aanda.org/articles/aa/pdf/2019/10/aa35920-19.pdf
-source='DSVI'#os.getenv('source')#
+source='DSiv'#os.getenv('source')#
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7}
+
 fnum=fields[source]
+central_pix=pixdict[source]
 
 home=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/C2H5OH/'
 
 cntrfile='/orange/adamginsburg/sgrb2/2017.1.00114.S/imaging_results/Sgr_B2_DS_B6_uid___A001_X1290_X46_continuum_merged_12M_robust2_selfcal4_finaliter_feathered_with_bolocam.fits'
-tblfile='pacman_sep2023revolution/nov92023_allpropertytable.fits'
+tblfile='../../imaging_results/SgrB2DS-CH3OH/pacman_sep2023revolution/nov92023_allpropertytable.fits'
 
 infile=home+source+sourcedict[source]+pathsuffix
 
@@ -101,7 +103,10 @@ else:
     pass 
 
 pathsuffix2=pathsuffix.replace('fits','png')
-savefigpath=savefighome+pathsuffix2
+if set==5:
+    savefigpath=savefighome+'withmethanolradius&legend_'+pathsuffix2
+else:
+    savefigpath=savefighome+pathsuffix2
 
 hdu=fits.open(infile)[0]
 cntrhdu=fits.open(cntrfile)[0]
@@ -119,6 +124,23 @@ cntrwcs=WCS(cntrhdu).celestial
 texmaxpix=hduwcs.array_shape
 hdubeam=radio_beam.Beam.from_fits_header(hdu.header)
 
+#To mititgate the inclusion of distant ethanol detections which can't be validated due to time contraints, I set
+#a radius cutoff on the ethanol emission by using the by-eye flattening point of the ethanol's radially averaged column density - 1/29/2025
+ethanol_rdict={'SgrB2S':'','DSi':6000*u.AU,'DSii':4000*u.AU,'DSiii':'','DSiv':6000*u.AU,'DSv':'',
+       'DSVI':4000*u.AU,'DSVII':'','DSVIII':'','DSIX':''}
+
+if source not in ethanol_rdict.keys():
+    r_phys=10000*u.AU
+else:
+    r_phys=ethanol_rdict[source]#r*pixtophysicalsize.to('pc')
+r=math.ceil((r_phys/pixtophysicalsize).to(''))
+
+yy,xx=np.indices(hdu.data.shape)
+rr=((xx-central_pix[1])**2+(yy-central_pix[0])**2)**0.5
+mask=rr<r
+radialdistance=(rr[mask]*pixtophysicalsize).value
+data_in_okradius=hdu.data*mask
+
 plt.rcParams['figure.dpi'] = 300
 sliced=['x','y']#,0,0]#Must be in same order as axes are given in fits header, at least. 
 plt.figure()
@@ -129,8 +151,8 @@ ax=plt.subplot(projection=hduwcs,slices=sliced)
 ra=ax.coords[0]
 dec=ax.coords[1]
 if mode == 'trot':
-    vmaxdict={'SgrB2S':625,'DSi':306,'DSii':250,'DSiii':351,'DSiv':398,'DSv':357,'DSVI':427,'DSVII':282,'DSVIII':300,'DSIX':252}
-    img=ax.imshow(np.squeeze(hdu.data),vmax=vmaxdict[source],vmin=25,interpolation=None, cmap=cm)#, norm=mpl.colors.LogNorm())#vmaxcntm=0.005, vmaxdsi=300 (no min value),vmaxsgrb2s=605 tmin=10 (try no min value), ntotmax=6.26e17, dsintotmax=2.21e17
+    vmaxdict={'SgrB2S':'','DSi':306,'DSii':250,'DSiii':'','DSiv':450,'DSv':'','DSVI':315,'DSVII':'','DSVIII':'','DSIX':''}
+    img=ax.imshow(np.squeeze(data_in_okradius),vmax=vmaxdict[source],vmin=25,interpolation=None, cmap=cm)
 elif mode == 'abundance':
     abundadjust={'DSi':5e-8,'DSii':5e-8,'DSiv':1e-7,'DSiii':5e-9,'DSiv':9e-8,'DSVI':5e-8,}#
     maxadjust={'DSi':2.5e-7,'DSii':1.3e-7,'DSiv':3.5e-7,'DSVI':4e-7,}#'DSiii':7e-8,vmin=1e-7,vmax=3.5e-7)
@@ -153,14 +175,18 @@ elif mode == 'abundance':
         img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm())
         maxfix=False
 
-elif mode == 'nh2':
-    minnh2adjust={'SgrB2S':9e22,'DSVI':9e22,'DSVII':9e22}#,'DSi':9e22}
-    maxnh2adjust={'DSii':9e23,'DSv':5e23,'DSIX':3e23}
-    if source in minnh2adjust.keys():
+elif mode == 'ntot':
+    minnh2adjust={'DSi':5e15,'DSii':5e15,'DSiv':5e15,'DSVI':5e15}#,'DSi':9e22}
+    maxnh2adjust={'DSi':4e17,'DSii':9e16,'DSiv':5e17,'DSVI':9e17}
+    if source in minnh2adjust.keys() and source in maxnh2adjust.keys():
         minfix=minnh2adjust[source]
-        img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm(vmin=minfix,))
+        maxfix=maxnh2adjust[source]
+        img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm(vmin=minfix,vmax=maxfix))
     elif source in maxnh2adjust.keys():
         maxfix=maxnh2adjust[source]
+        img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm(vmax=maxfix,))
+    elif source in minnh2adjust.keys():
+        minfix=maxnh2adjust[source]
         img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm(vmax=maxfix,))
     else:
         img=ax.imshow(np.squeeze(hdu.data),interpolation=None, cmap=cm, norm=mpl.colors.LogNorm())
@@ -180,6 +206,23 @@ if mode == 'detections':
         circle=mpl.patches.Circle(xy=(pixdict[source][1],pixdict[source][0]),radius=radius_pixels,facecolor='none',edgecolor='cyan',linewidth=1)
     ax.scatter(pixdict[source][1],pixdict[source][0],marker='*',color='cyan')
     ax.add_patch(circle)
+if mode == 'ntot':
+    ax.contour(cntrdata, levels=cntrlist, colors='white',transform=ax.get_transform(cntrwcs),linewidths=0.5,zorder=1)
+    
+    tbl=QTable.read(tblfile)
+    tblindex=np.where(tbl['Source']==tblconversion[source])[0]
+    ch3oh_radius=tbl['Radius'][tblindex][0]
+    srcradius=ethanol_rdict[source]#tbl['Radius'][tblindex]
+    radius_pixels=math.floor((srcradius/pixtophysicalsize).to('').value)
+    ch3oh_radius_pixels=math.floor((ch3oh_radius/pixtophysicalsize).to('').value)
+    if source == 'SgrB2S':
+        circle=mpl.patches.Circle(xy=(65,70),radius=radius_pixels,facecolor='none',edgecolor='cyan',linewidth=1)
+    else:
+        circle=mpl.patches.Circle(xy=(pixdict[source][1],pixdict[source][0]),radius=radius_pixels,facecolor='none',edgecolor='cyan',linewidth=1,label=r'Estimated $R_{C_2H_5OH}$')
+        ch3oh_circle=mpl.patches.Circle(xy=(pixdict[source][1],pixdict[source][0]),radius=ch3oh_radius_pixels,facecolor='none',edgecolor='red',linestyle='--',linewidth=1,label=r'CH$_3$OH-based $R_{core}$')
+    ax.scatter(pixdict[source][1],pixdict[source][0],marker='*',color='cyan',label='Represenative Pixel')
+    ax.add_patch(circle)
+    ax.add_patch(ch3oh_circle)
 else:
     ax.contour(cntrdata, levels=cntrlist, colors='white',transform=ax.get_transform(cntrwcs),linewidths=0.5,zorder=1)
 
@@ -261,7 +304,7 @@ ax.add_patch(hdubeamplot)
 hdubeamplot.set_facecolor('gray')
 hdubeamplot.set_edgecolor('white')
 
-labeldict={0:'T$_{K}$ (K)',1:r'Intensity (K km s$^{-1}$)',2:r'N$_{upper}$ (cm$^{-2}$)',3:'$n_{transition}$',4:'X(C$_2$H$_5$OH)',5:'$N$(H$_2$) (cm$^{-2}$)'}
+labeldict={0:'T$_{K}$ (K)',1:r'Intensity (K km s$^{-1}$)',2:r'N$_{upper}$ (cm$^{-2}$)',3:'$n_{transition}$',4:'X(C$_2$H$_5$OH)',5:'$N_{tot}$ (cm$^{-2}$)'}
 ax.axis(lims)
 ra.set_axislabel('RA (J2000)',fontsize=14,minpad=0.9)
 ra.set_ticklabel(exclude_overlapping=True)
@@ -321,6 +364,7 @@ if mode == 'abundance':
                 break
 
 #pdb.set_trace()
+plt.legend()
 #sys.exit()
 print(f'Saving figure at {savefigpath}')
 plt.savefig(savefigpath)
