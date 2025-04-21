@@ -31,7 +31,7 @@ def round_to_1(x):
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
 
-source='DSiii'
+source='DSVII'
 print(f'Source: {source}\n')
 fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7,'DSX':7,'DSXI':8}
 fnum=fields[source]
@@ -123,7 +123,7 @@ def linelooplte(line_list,line_fwhm):
                 continue
             print(f'Make spectral slab between {nu_lower} and {nu_upper}')
             slab=cube.spectral_slab(nu_upper,nu_lower)
-            
+            #pdb.set_trace()
             print('Slicing quantum numbers')
             transition=ethanol_qnsforfiles(line['QNs'])#qn_replace(quantum_numbers[i])
             moment0filename=home+f'{nospace_molecule}~'+transition+'_raw.fits'
@@ -172,12 +172,20 @@ def linelooplte(line_list,line_fwhm):
                 slabmom0=slab.moment0()
                 print('Computing masked moment0...\n')
                 contmom0=reprojcont_K*slabfwhm#continuum sanity check
-                if transition in doublet:
-                    maskslabmom0=(maskedslab.moment0()+contmom0)/2
-                    print(f'\nDoublet line identified: {quantum_numbers[i]}')
-                    print(f'Value divided in half to compensate for line blending.\n')
-                else:
-                    maskslabmom0=maskedslab.moment0()+contmom0
+                if len(doublet) > 0:
+                    for path_transitiontable in doublet:
+                        transitiontable=QTable.read(path_transitiontable)
+                        if transition in transitiontable['QNs']:
+                            targetdoublettransition=np.where(transition in transitiontable['QNs'])[0]
+                            all_companions_combined_flux=np.sum(doublettable['ModelBrightness'])
+                            targettransition_modelflux=transitiontable['ModelBrightness'][targetdoublettransition]
+                            target_flux_to_total_flux_ratio=targettransition_modelflux/all_companions_combined_flux
+                            maskslabmom0=(maskedslab.moment0()+contmom0)/target_flux_to_total_flux_ratio
+                            print(f'\nDoublet line identified: {quantum_numbers[i]}')
+                            print(f'Value scaled by factor of {target_flux_to_total_flux_ratio} to compensate for line blending.\n')
+                            sys.exit()
+                        else:
+                            maskslabmom0=maskedslab.moment0()+contmom0
                 print('Computing peak intensity')
                 maskedpeakint=maskedslab.max(axis=0)
     
@@ -261,7 +269,7 @@ stdhome=stdhomedict[fnum]
 
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSVI':'/nov2024_1_removesDS2exclusions/'}
+c2h5oh_sourcelocs={'SgrB2S':'/mar2025_2_removesDS2exclusions/','DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSv':'/mar2025_1_removesDS2exclusions/','DSVI':'/nov2024_1_removesDS2exclusions/','DSVII':'/apr2025_2_removesDS2exclusions/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -271,11 +279,18 @@ reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
 
 sourcelocs=c2h5oh_sourcelocs
 
-representativelines={'DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiv':'14.0.14_2-13.1.13_2','DSVI':'14.0.14_2-13.1.13_2'}
+representativelines={'SgrB2S':'14.0.14_2-13.1.13_2','DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiv':'14.0.14_2-13.1.13_2','DSv':'16.5.11_2-16.4.12_2','DSVI':'14.0.14_2-13.1.13_2','DSVII':'14.0.14_2-13.1.13_2'}
 representativelws=measlinewidth
-representativecubes={'SgrB2S':'','DSi':2,'DSii':2,'DSiii':2,'DSiv':2,'DSv':'','DSVI':2,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}
+representativecubes={'SgrB2S':2,'DSi':2,'DSii':2,'DSiii':2,'DSiv':2,'DSv':2,'DSVI':2,'DSVII':2,'DSVIII':'','DSIX':'','DSX':''}
 
-excludedlines={'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],'DSVI':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)',]}# '35(4,31)(2)-35(3,32)(2)']}
+excludedlines={'SgrB2S':['35(4,31)(2)-35(3,32)(2)','45(6,39)(2)-45(5,40)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','13(5,8)(2)-13(4,9)(2)','22(5,18)(2)-22(4,19)(2)'],
+               'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
+               'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],
+               'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
+               'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
+               'DSv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],
+               'DSVI':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)',],
+              'DSVII':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)']}# '35(4,31)(2)-35(3,32)(2)']}
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
 nupperpath=sourcepath+'nuppers/'
 stdpath=sourcepath+'errorimgs/std/'
@@ -325,8 +340,7 @@ catdir=CDMS.get_species_table()
 catdir_c2h5oh=catdir[catdir['tag'] == 46524]
 catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
 
-doublet=[]
-restfreq_representativeline={'SgrB2S':'','DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':230.9913834*u.GHz,'DSiv':230.9913834*u.GHz,'DSv':'','DSVI':230.9913834*u.GHz,'DSVII':'','DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
+restfreq_representativeline={'SgrB2S':230.9913834*u.GHz,'DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':230.9913834*u.GHz,'DSiv':230.9913834*u.GHz,'DSv':230.9537832*u.GHz,'DSVI':230.9913834*u.GHz,'DSVII':230.9913834*u.GHz,'DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
 rep_fwhm=representative_filename_base+'fwhm.fits'
@@ -339,7 +353,9 @@ safelinemol=molecule.replace(' ','')
 linemodelpath=linemodelhome+f'{linemodelversion}/{source}/'
 safelinepathbase=linemodelpath+'safelines/'
 safelinepath=safelinepathbase+f'{safelinemol}.fits'
+doubletpath=safelinepathbase+f'doublets/*.fits'
 safelines=QTable.read(safelinepath)
+doublet=glob.glob(doubletpath)
 
 if os.path.isfile(rep_mom1):
     print(f'{source} representative line objects already exist.')
@@ -527,7 +543,7 @@ numtransmap=np.empty((yshape,xshape))
 snr=3
 
 print(f'Starting rotational {molecule} diagram loops')
-centers={'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40],'DSVI':[55,66]}
+centers={'SgrB2S':[80,50],'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40],'DSv':[15,25],'DSVI':[55,66],'DSVII':[70,80]}
 bootstraps=True
 midloop_rotdiagrams=True
 

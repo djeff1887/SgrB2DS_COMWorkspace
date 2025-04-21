@@ -33,8 +33,8 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSiv'
-figureversion='250K_'#'testingnewcontinuum_2'
+source='DSVIII'
+figureversion='postthesis_'#'testingnewcontinuum_2'
 fnum=fields[source]
 dpi={0:150,1:300}
 mode=dpi[0]
@@ -91,8 +91,6 @@ texmapdata=fits.getdata(texmappath)*u.K
 fwhmmap=fits.getdata(fwhmpath)*u.km/u.s
 nch3ohmap=fits.getdata(nch3ohpath)*u.cm**-2
 
-testT=250*u.K#texmapdata[targetpix[0],targetpix[1]]#350*u.K
-print(f'Rotational temperature: {testT}')
 fwhm_at_pix=fwhmmap[targetpix[0],targetpix[1]]
 nch3oh_at_pix=nch3ohmap[targetpix[0],targetpix[1]]
 #print(fwhm_at_pix)
@@ -135,6 +133,8 @@ n=1
 
 cdms_catdir_qrot_temps=np.array([1000,500,300,225,150,75,37.5,18.75,9.375,5,2.725])
 jpl_catdir_qrot_temps=[300, 225, 150, 75, 37.5, 18.75, 9.375]
+cdms_desiredcolumnnames=['lg(Q(1000))', 'lg(Q(500))', 'lg(Q(300))', 'lg(Q(225))', 'lg(Q(150))', 'lg(Q(75))', 'lg(Q(37.5))', 'lg(Q(18.75))', 'lg(Q(9.375))', 'lg(Q(5.000))', 'lg(Q(2.725))']
+jpl_desiredcolumnnames=['QLOG1', 'QLOG2', 'QLOG3', 'QLOG4', 'QLOG5', 'QLOG6', 'QLOG7']
 
 aceswidth=[[85.965625,86.434375],[86.665625,87.134375],[89.159231,89.217821],[87.895942,87.954532],[97.6625,99.5375],[99.5625,101.4375]]
 
@@ -193,7 +193,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     plt.plot(freqs.to('GHz').value,data.value,drawstyle='steps-mid',color='black')
     
     '''Generate methanol table for use during contaminant search'''
-    #pdb.set_trace()
+    testT=texmapdata[targetpix[0],targetpix[1]]
     Jfreqs, Jaij, Jdeg, JEU, qrot = get_molecular_parameters('CH3OH, vt=0-2', catalog='CDMS', fmin=freq_min, fmax=freq_max)
     
     qrot_partfunc=qrot(testT)
@@ -237,6 +237,28 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
     modeldict={}
     #sys.exit()
     for molecule,hue,first in zip(list(columndict.keys())[1:], molcolors,list(firstmolline.keys())[1:]):
+        #Check if molecule has already had rotational diagrams analysis; if so, use those temperatures and columns instead of the estimated ones
+        if molecule in sourcedict.keys() and source in c2h5oh_sourcelocs.keys():
+            nospace_molecule=molecule.replace(' ','')
+            print(f'Using measured {nospace_molecule} Trot and Ntot')
+            speciespath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}{c2h5oh_sourcelocs[source]}'
+            species_texmappath=speciespath+'texmap_3sigma_allspw_withnans_weighted.fits'
+            n_speciespath=speciespath+'ntotmap_allspw_withnans_weighted_useintercept_3sigma.fits'
+
+            species_texmap=fits.getdata(species_texmappath)*u.K
+            n_speciesmap=fits.getdata(n_speciespath)*u.cm**-2
+            '''
+            if molecule == ' C2H5OH ':
+                testT=587*u.K#species_texmap[targetpix[0],targetpix[1]]
+                cntot=10**17.2*u.cm**-2#n_speciesmap[targetpix[0],targetpix[1]]
+            else:
+            '''
+            testT=species_texmap[targetpix[0],targetpix[1]]
+            cntot=n_speciesmap[targetpix[0],targetpix[1]]
+        else:
+            testT=texmapdata[targetpix[0],targetpix[1]]
+            #print(f'CH3OH rotational temperature: {testT}')
+            cntot=columndict[molecule]
         '''Generate species table for contaminant search'''
         if molecule in jplnamelist.keys():
             molname=jplnamelist[molecule]
@@ -246,11 +268,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
             scatdir_qrot300=10**species_catdir['QLOG1']
             jplname=f'{species_catdirtag} {jplnamelist[molecule]}'
             species_table= JPLSpec.query_lines(min_frequency=freq_min,max_frequency=freq_max,min_strength=-500,molecule=jplname,get_query_payload=False)
-            if molecule == ' CH3COCH3 ':
-                print(jplname)
-                print(species_catdir)
-                print(species_table)
-                print(f'Partition function: {c_qrot(testT)}')
+            
             if len(species_table) == 0 or type(species_table['FREQ'][0])==np.str_:
                 print(f'No transitions for {molecule} in {img}. Continue')
                 continue
@@ -277,8 +295,10 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                     j=j.replace(' ','.')
                     a=f'{i}-{j}'
                     cqns.append(a)
-                #print(caijs)
-                #sys.exit()
+            
+            catdirkeys=list(species_catdir.keys())
+            jpl_intersect,ind_catdirkeys,jpl_ind_desiredcatedircolumns=np.intersect1d(catdirkeys,jpl_desiredcolumnnames,return_indices=True)
+            
         elif molecule in cdmsnamelist.keys():
             molname=cdmsnamelist[molecule]
             cCfreqs, cCaij, cCdeg, cCEU, c_qrot = get_molecular_parameters(molname,catalog='CDMS', fmin=freq_min, fmax=(freq_max+100*u.GHz),)
@@ -325,17 +345,21 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 clog10cdmsfluxes=species_table['LGINT']
                 ccdmsfluxes=10**clog10cdmsfluxes
                 caijs=pickett_aul(ccdmsfluxes,cnus,cdegs,celo_J,ceujs,scatdir_qrot300,T=300*u.K)
+            
+            catdirkeys=list(species_catdir.keys())
+            cdms_intersect,ind_catdirkeys,cdms_ind_desiredcatedircolumns=np.intersect1d(catdirkeys,cdms_desiredcolumnnames,return_indices=True)
         
-        #sys.exit()
-        if np.isfinite(c_qrot(testT))==False or c_qrot(testT) == 0:
+        if np.isfinite(c_qrot(testT))==False or c_qrot(testT) == 0 or c_qrot(testT) == c_qrot(testT+1*u.K):
             if molecule in incompleteqrot:
                 print(f'{molecule} has an incomplete partition function')
                 print('Estimating by linear fit to log-log Qrot/T relation')
                 poly=Linear1D(slope=150, intercept=10)
                 fitter=fitting.LinearLSQFitter()
     
-                catdirkeys=list(species_catdir.keys())
-                lgqrots_spec_catdir=np.array(list(species_catdir[catdirkeys[3:]].as_array()[0]))
+                #The following removes problematic columns which would turn the lgqrots into strings
+                incompleteqrot_desiredcolumns=catdirkeys[ind_catdirkeys[0]:(ind_catdirkeys[len(ind_catdirkeys)-1]+1)]
+                
+                lgqrots_spec_catdir=np.array(list(species_catdir[incompleteqrot_desiredcolumns].as_array()[0]))
                 nonnanqrots=list(np.where(np.isnan(lgqrots_spec_catdir)==False)[0])
                 temperatures_nonnanqrots=cdms_catdir_qrot_temps[nonnanqrots]
     
@@ -344,6 +368,8 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 logintercept=10**power_law_fit.intercept
                 logTs=logintercept*fitinput_xvalues**power_law_fit.slope
                 c_qrot_partfunc=fit_qrot(logintercept,testT,power_law_fit)
+                if molecule == ' C2H5OH ':
+                    print(f'testT: {testT}')
             else:
                 print(f'\nNew incomplete qrot molecule - {molecule}')
                 sys.exit()
@@ -353,23 +379,30 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         if molecule in othermol_dshift_v.keys():
             otherz=othermol_dshift_v[molecule]/c
             clines=cnus/(1+otherz)
+        elif molecule in masterdopplershifts.keys():
+            if source in masterdopplershifts[molecule].keys():
+                otherz=(masterdopplershifts[molecule][source]/c).to('')
+                clines=cnus/(1+otherz)
+                #sys.exit()
         else:
             clines=cnus/(1+z)
-    
-        cntot=columndict[molecule]
         
         print(f'Begin model loops for {molecule}')
         firstmodelline=True 
         tempdetections=[]
-        for line,deg,euj,aij,qn,euk in zip(clines,cdegs,ceujs,caijs,cqns,ceuks):
-            if isinstance(line,float):
-                line=line*u.MHz
+        for restline,refline,deg,euj,aij,qn,euk in zip(cnus,clines,cdegs,ceujs,caijs,cqns,ceuks):
+            if isinstance(refline,float):
+                refline=refline*u.MHz
+            if isinstance(restline,float):
+                restline=restline*u.MHz
+            '''
             if molecule in othermol_dshift_v.keys():
                 restline=line*(1+otherz)#*u.MHz
             else:
                 restline=line*(1+z)#*u.MHz
+            '''
             est_nupper=nupper_estimated(cntot,deg,c_qrot_partfunc,euj,testT).to('cm-2')
-            modlinewidth=velocitytofreq(linewidth,line)#*u.MHz)
+            modlinewidth=velocitytofreq(linewidth,refline)#*u.MHz)
             lineprofilesigma=modlinewidth/2*np.sqrt(2*np.log(2))
             phi_nu=lineprofile(sigma=lineprofilesigma,nu_0=restline,nu=restline)
             intertau=lte_molecule.line_tau(testT, cntot, c_qrot_partfunc, deg, restline, euj, aij) 
@@ -381,14 +414,14 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
                 #pdb.set_trace()
             '''
             if trad >= 3*error:
-                modelline=models.Gaussian1D(mean=line, stddev=modlinewidth, amplitude=trad)
+                modelline=models.Gaussian1D(mean=refline, stddev=modlinewidth, amplitude=trad)
                 modelspec+=modelline
                 compositebaseline+=modelline
                 if firstmodelline:# Updated to let us retrieve the parameters of the detected lines
-                    tempdetections=QTable(rows=[[qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper]],names=['QNs','RestFrequency','ReferenceFrequency','Eupper','Degeneracy','Aij','ModelBrightness','ModelNupper'])
+                    tempdetections=QTable(rows=[[qn,restline.to('GHz'),refline.to('GHz'),euk,deg,aij,trad,est_nupper]],names=['QNs','RestFrequency','ReferenceFrequency','Eupper','Degeneracy','Aij','ModelBrightness','ModelNupper'])
                     firstmodelline=False
                 else:
-                    tempdetections.add_row([qn,restline.to('GHz'),line.to('GHz'),euk,deg,aij,trad,est_nupper])
+                    tempdetections.add_row([qn,restline.to('GHz'),refline.to('GHz'),euk,deg,aij,trad,est_nupper])
             else:
                 continue       
         if molecule in linedetections.keys():
@@ -469,6 +502,8 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         p2maxfreq=max(freqs)
         plt.xlim(xmin=(p2minfreq-plotspecpad).value,xmax=(p2maxfreq+plotspecpad).value)
     '''
+    if not os.path.exists(f'../plots/HotCoreSpectra_phi-nufix/{source}'):
+        os.mkdir(f'../plots/HotCoreSpectra_phi-nufix/{source}')
     if img == '':
         plt.xlabel(r'$\nu$ (GHz)',fontsize=16)
         plt.ylabel('T$_b$ (K)',fontsize=16)
@@ -488,7 +523,7 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_{figureversion}_{source}_{img}_individualizedspectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}/{figureversion}_{img}_individualizedspectra.pdf')
         plt.show()
         
         #plt.rcParams['figure.dpi'] = mode
@@ -502,5 +537,5 @@ for spectrum, img, stdimage in zip(spectra,images,stds):
         plt.tick_params(labelsize=13)
         plt.tight_layout()
         plt.legend()
-        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/_{figureversion}_{source}_{img}_compositespectra.pdf')
+        plt.savefig(f'../plots/HotCoreSpectra_phi-nufix/{source}/{figureversion}_{img}_compositespectra.pdf')
         plt.show()
