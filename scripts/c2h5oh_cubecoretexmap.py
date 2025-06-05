@@ -6,7 +6,6 @@ import radio_beam
 import os
 from astropy.modeling import models, fitting
 import pdb
-import pickle
 from astropy.wcs import WCS
 import matplotlib as mpl
 import copy
@@ -18,40 +17,48 @@ from utilities import *
 from manualspeciesabundances import *
 from pyspeckit.spectrum.models import lte_molecule
 from astropy.table import QTable
-import sys
 from astropy.stats import bootstrap
 import astropy.stats
+import importlib
+from pathlib import Path
+import sys
+sys.path.append('RotationalTemperatureParameters/')
+
+reference_molecule='CH3OH'
+molecule=' C2H5OH '
+nospace_molecule=molecule.replace(' ','')
+target_molecule_module = importlib.import_module(nospace_molecule)
+reference_molecule_module = importlib.import_module(reference_molecule)
+# Access attributes from target_molecule_module as needed, e.g.:
+# target_molecule_module.some_function()
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
-def round_to_1(x):
-    return round(x, -int(floor(log10(abs(x)))))
+def ethanol_qnsforfiles(qn):
+    tempqns=qn.replace('(','.')
+    tempqns=tempqns.replace(',','.')
+    fileready_qn=tempqns.replace(')','')
+    return fileready_qn
 
 '''This wing of the script takes in continuum-subtracted cubes, cuts out a subcube around a region of interest based on a DS9 region, and converts the subcubes into brightness temperature (K) units'''
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
 
-source='DSVII'
+source='DSi' #Change this to the source you want to analyze
 print(f'Source: {source}\n')
-fields={'SgrB2S':1,'DSi':10,'DSii':10,'DSiii':10,'DSiv':10,'DSv':10,'DSVI':2,'DSVII':3,'DSVIII':3,'DSIX':7,'DSX':7,'DSXI':8}
 fnum=fields[source]
-molecule=' C2H5OH '
-nospace_molecule=molecule.replace(' ','')
 
-#inpath="/orange/adamginsburg/sgrb2/d.jeff/data/field10originalimages/"
-inpaths={1:'/orange/adamginsburg/sgrb2/d.jeff/data/OctReimage_K/',10:"/orange/adamginsburg/sgrb2/d.jeff/data/field10originals_K/",2:"/orange/adamginsburg/sgrb2/d.jeff/data/field2originals_K/",3:"/orange/adamginsburg/sgrb2/d.jeff/data/field3originals_K/",7:"/orange/adamginsburg/sgrb2/d.jeff/data/field7originals_K/",8:"/orange/adamginsburg/sgrb2/d.jeff/data/field8originals_K/"}
-inpath=inpaths[fnum]#'/blue/adamginsburg/d.jeff/imaging_results/data/OctReimage/'
+inpaths=orange_stacontsubpaths
+inpath=inpaths[fnum]
 beamcubes=glob.glob(inpath+'*.fits')
-homes={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:"/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/",2:"/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/",3:"/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/",7:"/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/",8:"/orange/adamginsburg/sgrb2/d.jeff/products/field8originals_K/"}
-home=homes[fnum]#'/blue/adamginsburg/d.jeff/imaging_results/products/OctReimage/'
+homes=orange_stdhomedict
+home=homes[fnum]
 cubes=glob.glob(home+'*pbcor_line.fits')
-sourceregs={'SgrB2S':'fk5; box(266.8353410, -28.3962005, 0.0016806, 0.0016806)','DSi':'fk5; box(266.8316387, -28.3971867, 0.0010556, 0.0010556)','DSii':'fk5; box(266.8335363, -28.3963159, 0.0006389, 0.0006389)','DSiii':'fk5; box(266.8332758, -28.3969270, 0.0006944, 0.0006944)','DSiv':'fk5; box(266.8323834, -28.3954424, 0.0009000, 0.0009000)','DSv':'fk5; box(266.8321331, -28.3976585, 0.0005556, 0.0005556)','DSVI':'fk5; box(266.8380037, -28.4050741, 0.0017361, 0.0017361)','DSVII':'fk5; box(266.8426074, -28.4094401, 0.0020833, 0.0020833)', 'DSVIII':'fk5; box(266.8418408, -28.4118242, 0.0014028, 0.0014028)','DSIX':'fk5; box(266.8477371, -28.4311386, 0.0009583, 0.0009583)','DSX':'fk5; box(266.8452950, -28.4282608, 0.0017083, 0.0017083)','DSXI':'fk5; box(266.8404733, -28.4286378, 0.0013194, 0.0013194)'}
 region=sourceregs[source]
-outpath_base=f'/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSminicubes/{source}/'
 outstatpath_end={1:'OctReimage_K/',10:'field10originals_K/',2:'field2originals_K/',3:'field3originals_K/',7:'field7originals_K/',8:'field8originals_K/'}
-outpath=outpath_base+outstatpath_end[fnum]
-statfixpath_base='/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSstatcontfix/'
-statfixpath=statfixpath_base+outstatpath_end[fnum]
+outpath=Path("/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSminicubes/")/source/outstatpath_end[fnum]
+statfixpath=str(Path('/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSstatcontfix/')/outstatpath_end[fnum])
+
 
 regionparams=[float(val) for val in region[9:(len(region)-1)].split(', ')]
 
@@ -61,22 +68,22 @@ print('Begin core cube to Tex map process\n')
 
 '''Collect constants and quantum parameters'''
 print('Setting constants')
-b_0=rotationalconstants[molecule][0]
-a_0=rotationalconstants[molecule][1]
-c_0=rotationalconstants[molecule][2]
+b_0=target_molecule_module.rotationalconstants[0]
+a_0=target_molecule_module.rotationalconstants[1]
+c_0=target_molecule_module.rotationalconstants[2]
 m=b_0**2/(a_0*c_0)
 
-reorgpath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/CH3OH/{source}/'+ch3oh_sourcedict[source]
+#Define path names for methanol/parameters used for initial guesses
+reorgpath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/CH3OH/{source}/{reference_molecule_module.sourcelocs[source]}'
 mastertxttablepath=reorgpath+'mastereuksqnsfreqsdegens.fits'
 fwhmpath=glob.glob(reorgpath+'*fwhm*')[0]
 nch3ohpath=reorgpath+'bootstrap_ntot_intstd_boostrap1000_nonegativeslope.fits'
-picklepath=reorgpath+f'{molecule}linesdict.obj'
 trotmappath=reorgpath+'bootstrap_texmap_3sigma_allspw_withnans_weighted.fits'
 fluxerrorpath=reorgpath+'errorimgs/std/*.fits'
 ch3oh_trotpath=reorgpath+'bootstrap_texmap_3sigma_allspw_withnans_weighted.fits'
 pixcoords=pixdict[source]
 
-vlsr=c2h5oh_dopplershifts[source]
+vlsr=target_molecule_module.dopplershifts[source]
 z=vlsr/(c.to('km s-1'))
 print(f'Doppler shift: {z} / {vlsr}\n')
 
@@ -85,16 +92,6 @@ sourcefwhm=fits.getdata(fwhmpath)*u.km/u.s
 trotmap=fits.getdata(trotmappath)*u.K
 measTrot=trotmap[pixcoords[0],pixcoords[1]]
 measlinewidth=sourcefwhm[pixcoords[0],pixcoords[1]]
-measTrot=trotmap[pixcoords[0],pixcoords[1]]
-testT=measTrot
-testntot=sourcecolumns[source][molecule]
-print(f'Input Tex: {testT}\nInput Ntot: {testntot}')
-
-def ethanol_qnsforfiles(qn):
-    tempqns=qn.replace('(','.')
-    tempqns=tempqns.replace(',','.')
-    fileready_qn=tempqns.replace(')','')
-    return fileready_qn
     
 cube_edge_boundary=10*u.MHz
 '''Loop through a given list of lines (in Hz), computing and saving moment0 maps of the entered data cube'''
@@ -173,24 +170,27 @@ def linelooplte(line_list,line_fwhm):
                 print('Computing masked moment0...\n')
                 contmom0=reprojcont_K*slabfwhm#continuum sanity check
                 if len(doublet) > 0:
-                    for path_transitiontable in doublet:
+                    pdb.set_trace()
+                    for path_transitiontable in doublet: #Find table containing the transition's self-contaminants
                         transitiontable=QTable.read(path_transitiontable)
                         if transition in transitiontable['QNs']:
-                            targetdoublettransition=np.where(transition in transitiontable['QNs'])[0]
-                            all_companions_combined_flux=np.sum(doublettable['ModelBrightness'])
-                            targettransition_modelflux=transitiontable['ModelBrightness'][targetdoublettransition]
-                            target_flux_to_total_flux_ratio=targettransition_modelflux/all_companions_combined_flux
-                            maskslabmom0=(maskedslab.moment0()+contmom0)/target_flux_to_total_flux_ratio
+                            targetdoublettransition=np.where(transition in transitiontable['QNs'])[0] #Find the target transition
+                            all_companions_combined_flux=np.sum(doublettable['ModelBrightness']) #Compute the combined flux of the target and its companions
+                            targettransition_modelflux=transitiontable['ModelBrightness'][targetdoublettransition] #Select the target transition's flux
+                            target_flux_to_total_flux_ratio=targettransition_modelflux/all_companions_combined_flux #Compute the ratio of the target transition's flux to the total flux of the target and its companions
+                            maskslabmom0=(maskedslab.moment0()+contmom0)/target_flux_to_total_flux_ratio #Scale the measured flux by the ratio of the target transition's flux to the total flux of the target and its companions
                             print(f'\nDoublet line identified: {quantum_numbers[i]}')
                             print(f'Value scaled by factor of {target_flux_to_total_flux_ratio} to compensate for line blending.\n')
                             sys.exit()
                         else:
                             maskslabmom0=maskedslab.moment0()+contmom0
+                else:
+                    maskslabmom0=maskedslab.moment0()+contmom0
                 print('Computing peak intensity')
                 maskedpeakint=maskedslab.max(axis=0)
     
                 print('\nSaving...')
-                slabmom0.write(moment0filename)
+                slabmom0.write(moment0filename,overwrite=True)
                 maskslabmom0.write(maskedmom0fn)
                 kkmsstdarray=stdcutout.data*fwhm_representative
     
@@ -258,18 +258,16 @@ if molecule in incompleteqrot:
 
 qrot_partfunc=fit_qrot(logintercept,measTrot,power_law_fit)
 
-incubes=glob.glob(outpath+"*pbcor_line.fits")
+incubes=glob.glob(str(outpath/"*pbcor_line.fits"))
 incubes.sort()
 images=['spw0','spw1','spw2','spw3']
 datacubes=incubes
 assert 'spw0' in datacubes[0], 'Cube list out of order'
 
-stdhomedict={1:'/orange/adamginsburg/sgrb2/d.jeff/products/OctReimage_K/',10:'/orange/adamginsburg/sgrb2/d.jeff/products/field10originals_K/',2:'/orange/adamginsburg/sgrb2/d.jeff/products/field2originals_K/',3:'/orange/adamginsburg/sgrb2/d.jeff/products/field3originals_K/',7:'/orange/adamginsburg/sgrb2/d.jeff/products/field7originals_K/'}
-stdhome=stdhomedict[fnum]
+stdhome=orange_stdhomedict[fnum]
 
 targetworldcrd=targetworldcrds[source]
 
-c2h5oh_sourcelocs={'SgrB2S':'/mar2025_2_removesDS2exclusions/','DSi':'/oct2024_1_removesDS2exclusions/','DSii':'/oct2024_1_removeproblemlines/','DSiii':'/dec2024_3_try-close-to-FWZI/','DSiv':'/nov2024_1_firstrun_removesDS2exclusions/','DSv':'/mar2025_1_removesDS2exclusions/','DSVI':'/nov2024_1_removesDS2exclusions/','DSVII':'/apr2025_2_removesDS2exclusions/'}
 contpath=reorgpath+'reprojectedcontinuum.fits'
 reprojcontfits=fits.open(contpath)
 reprojcont=reprojcontfits[0].data*u.Jy
@@ -277,20 +275,12 @@ reprojcontrestfreq=225*u.GHz#manual addition 11/9/2022, wiggle room w/i GHz
 cntmbeam=radio_beam.Beam.from_fits_header(reprojcontfits[0].header)
 reprojcont_K=reprojcont.to('K',cntmbeam.jtok_equiv(reprojcontrestfreq))
 
+sys.exit()
+
 sourcelocs=c2h5oh_sourcelocs
 
-representativelines={'SgrB2S':'14.0.14_2-13.1.13_2','DSi':'14.0.14_2-13.1.13_2','DSii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiii':'14.0.14_2-13.1.13_2','DSiv':'14.0.14_2-13.1.13_2','DSv':'16.5.11_2-16.4.12_2','DSVI':'14.0.14_2-13.1.13_2','DSVII':'14.0.14_2-13.1.13_2'}
 representativelws=measlinewidth
-representativecubes={'SgrB2S':2,'DSi':2,'DSii':2,'DSiii':2,'DSiv':2,'DSv':2,'DSVI':2,'DSVII':2,'DSVIII':'','DSIX':'','DSX':''}
 
-excludedlines={'SgrB2S':['35(4,31)(2)-35(3,32)(2)','45(6,39)(2)-45(5,40)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','13(5,8)(2)-13(4,9)(2)','22(5,18)(2)-22(4,19)(2)'],
-               'DSi':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
-               'DSii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],
-               'DSiii':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
-               'DSiv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)'],
-               'DSv':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)'],
-               'DSVI':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)','13(2,11)(0)-12(2,10)(0)',],
-              'DSVII':['13(5,8)(2)-13(4,9)(2)','21(5,17)(2)-21(4,18)(2)','20(5,16)(2)-20(4,17)(2)','22(5,18)(2)-22(4,19)(2)']}# '35(4,31)(2)-35(3,32)(2)']}
 sourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/{nospace_molecule}/{source}/'+sourcelocs[source]
 nupperpath=sourcepath+'nuppers/'
 stdpath=sourcepath+'errorimgs/std/'
@@ -300,8 +290,6 @@ rotdiagpath=sourcepath+'pixelwiserotationaldiagrams/'
 figpath=sourcepath+'figures/'
 
 overleafpath="/blue/adamginsburg/d.jeff/repos/C2H5OH_SgrB2DS/figures/"
-
-picklepath=sourcepath+f'{nospace_molecule}linesdict.obj'
 
 if os.path.isdir(slabpath):
     print(f'Source path directory tree {sourcepath} already exists.\n')
@@ -336,11 +324,29 @@ mastermom0s={}
 mastermom0errors={}
 headers_for_output_maps={}
 
-catdir=CDMS.get_species_table()
-catdir_c2h5oh=catdir[catdir['tag'] == 46524]
-catdir_qrot300=10**catdir_c2h5oh['lg(Q(300))']
+if linelistdict[molecule] == 'CDMS':
+    print(f'Using CDMS linelist for {molecule}')
+    master_catdir=CDMS.get_species_table()
+    if molecule in catdirtags.keys():
+        print(f'Catdir tag: {catdirtags[molecule]}')
+        catdirtag=catdirtags[molecule]
+    else:
+        print(f'No catdirtag found for {molecule} ')
+        sys.exit()
+elif linelistdict[molecule] == 'JPL':
+    print(f'Using JPL linelist for {molecule}')
+    master_catdir=JPLSpec.get_species_table()
+    if molecule in catdirtags.keys():
+        print(f'Catdir tag: {catdirtags[molecule]}')
+        catdirtag=catdirtags[molecule]
+    else:
+        print(f'No catdirtag found for {molecule}')
+        sys.exit()
 
-restfreq_representativeline={'SgrB2S':230.9913834*u.GHz,'DSi':230.9913834*u.GHz,'DSii':230.9913834*u.GHz,'DSiii':230.9913834*u.GHz,'DSiv':230.9913834*u.GHz,'DSv':230.9537832*u.GHz,'DSVI':230.9913834*u.GHz,'DSVII':230.9913834*u.GHz,'DSVIII':'','DSIX':'','DSX':''}#All taken from Splatalogue
+target_molecule_catdir=master_catdir[master_catdir['tag'] == catdirtag]
+catdir_qrot300=10**target_molecule_catdir['lg(Q(300))']
+
+sys.exit()
 representative_filename_base=sourcepath+representativelines[source]+'repline_'
 rep_mom1=representative_filename_base+'mom1.fits'
 rep_fwhm=representative_filename_base+'fwhm.fits'
@@ -353,7 +359,7 @@ safelinemol=molecule.replace(' ','')
 linemodelpath=linemodelhome+f'{linemodelversion}/{source}/'
 safelinepathbase=linemodelpath+'safelines/'
 safelinepath=safelinepathbase+f'{safelinemol}.fits'
-doubletpath=safelinepathbase+f'doublets/*.fits'
+doubletpath=safelinepathbase+f'{molecule}/doublets/*.fits'
 safelines=QTable.read(safelinepath)
 doublet=glob.glob(doubletpath)
 
@@ -543,7 +549,7 @@ numtransmap=np.empty((yshape,xshape))
 snr=3
 
 print(f'Starting rotational {molecule} diagram loops')
-centers={'SgrB2S':[80,50],'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40],'DSv':[15,25],'DSVI':[55,66],'DSVII':[70,80]}
+centers={'SgrB2S':[80,50],'DSi':[35,50],'DSii':[15,30],'DSiii':[20,32],'DSiv':[20,40],'DSv':[15,25],'DSVI':[55,66],'DSVII':[70,80],'DSVIII':[40,60]}
 bootstraps=True
 midloop_rotdiagrams=True
 

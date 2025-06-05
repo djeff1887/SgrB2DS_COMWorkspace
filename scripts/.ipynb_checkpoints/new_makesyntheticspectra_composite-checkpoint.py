@@ -33,7 +33,7 @@ def cdms_get_molecule_name(my_molecule_name, **kwargs):
 
 '''Collect constants for N_tot and N_upper calculations'''
 
-source='DSVIII'
+source='DSIX'
 figureversion='postthesis_'#'testingnewcontinuum_2'
 fnum=fields[source]
 dpi={0:150,1:300}
