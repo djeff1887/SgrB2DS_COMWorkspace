@@ -8,7 +8,7 @@ rotationalconstants=[(34.89170*u.GHz).to('MHz'),(9.35065*u.GHz).to('MHz'),(8.135
 
 sourcelocs = {
     'SgrB2S': '/mar2025_2_removesDS2exclusions/',
-    'DSi': '/oct2024_1_removesDS2exclusions/',
+    'DSi': '/COPILOTREFACTORING_first_attempt_at_generalizing_script/',#'/oct2024_1_removesDS2exclusions/',
     'DSii': '/oct2024_1_removeproblemlines/',
     'DSiii': '/dec2024_3_try-close-to-FWZI/',
     'DSiv': '/nov2024_1_firstrun_removesDS2exclusions/',

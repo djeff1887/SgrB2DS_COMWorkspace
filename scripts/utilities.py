@@ -2,7 +2,7 @@ import astropy.units as u
 import scipy.constants as cnst
 import numpy as np
 from pyspeckit.spectrum.models.lte_molecule import get_molecular_parameters
-import os
+from pathlib import Path
 from astroquery.splatalogue import Splatalogue
 from astroquery.linelists.cdms import CDMS
 from astroquery.jplspec import JPLSpec
@@ -24,7 +24,7 @@ dGC=8.277*u.kpc
 jeff2024_dGC=8.34*u.kpc#per Meng et al. 2019 https://www.aanda.org/articles/aa/pdf/2019/10/aa35920-19.pdf, pretty sure actual source is Reid+2014
 
 # Molecular parameters
-linemodelhome='/blue/adamginsburg/d.jeff/SgrB2DS_COMAnalysis/linemodels/'
+linemodelhome=Path('/blue/adamginsburg/d.jeff/SgrB2DS_COMAnalysis/linemodels/')
 linemodelversion='firstrelease'
 
 incompleteqrot=[' C2H5OH ',' H2S ',' CH3OCH3 ',' 13CH3OH ',' HC3N ', ' c-HCCCH ',' CH3NCO, vb = 0 ',' SO ','HC3N v7=1', ' H213CO ', ' CH3OCHO ',' CH3CHO ', ' CH2CHCN ', ' CH3COCH3 ',]
