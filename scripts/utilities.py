@@ -47,6 +47,7 @@ minicube_base=f'/orange/adamginsburg/sgrb2/2017.1.00114.S/desmond/SgrB2DSminicub
 minicube_end={1:'OctReimage_K/',10:'field10originals_K/',2:'field2originals_K/',3:'field3originals_K/',7:'field7originals_K/',8:'field8originals_K/'}
 sourceregs={'SgrB2S':'fk5; box(266.8353410, -28.3962005, 0.0016806, 0.0016806)','DSi':'fk5; box(266.8316387, -28.3971867, 0.0010556, 0.0010556)','DSii':'fk5; box(266.8335363, -28.3963159, 0.0006389, 0.0006389)','DSiii':'fk5; box(266.8332758, -28.3969270, 0.0006944, 0.0006944)','DSiv':'fk5; box(266.8323834, -28.3954424, 0.0009000, 0.0009000)','DSv':'fk5; box(266.8321331, -28.3976585, 0.0005556, 0.0005556)','DSVI':'fk5; box(266.8380037, -28.4050741, 0.0017361, 0.0017361)','DSVII':'fk5; box(266.8426074, -28.4094401, 0.0020833, 0.0020833)', 'DSVIII':'fk5; box(266.8418408, -28.4118242, 0.0014028, 0.0014028)','DSIX':'fk5; box(266.8477371, -28.4311386, 0.0009583, 0.0009583)','DSX':'fk5; box(266.8452950, -28.4282608, 0.0017083, 0.0017083)','DSXI':'fk5; box(266.8404733, -28.4286378, 0.0013194, 0.0013194)'}
 
+representative_spectra_home='/orange/adamginsburg/sgrb2/d.jeff/SgrB2DS_representative_pixel_spectra/'
 dataversion={'ch3oh':'pacman_sep2023revolution'}
 datadirs={'ch3oh':f'/blue/adamginsburg/d.jeff/imaging_results/SgrB2DS-CH3OH/{dataversion}/'}
 ch3ohpropertytablepath='/blue/adamginsburg/d.jeff/imaging_results/SgrB2DS-CH3OH/pacman_sep2023revolution/pwrlawfixed_allpropertytable.fits'
