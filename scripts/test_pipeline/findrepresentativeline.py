@@ -13,12 +13,13 @@ plt.rcParams['figure.dpi'] = 300
 # This script uses 1D gaussian fitting to identify the representative line for a given molecule.
 # It is assumed that the molecule has been previously identified in the pipeline, but this may be changed to import from another file in the future
 
-def run(logger,model_line_dir, results_dir, source='DSi', molecule='C2H5OH',num_best_lines=5):
+def run(logger, results_dir, source='DSi', molecule='C2H5OH', molecule_with_spaces=' C2H5OH ', num_best_lines=5):
+    # Set logger, input model line directory, and output directory
     model_line_dir = Path(f'../../linemodels/firstrelease/{source}/')
-    representative_line_output_dir=results_dir/"representativelinetests/"
+    representative_line_output_dir=results_dir/'representativelinetests/'
     logger.info(f'Creating directory for results of representative line measurement: {representative_line_output_dir}')
 
-    representative_line_plots_home=Path(results_dir/"representativelinetests"/'plots/')
+    representative_line_plots_home=representative_line_output_dir/'plots/'
     representative_line_plots_home.mkdir(parents=True, exist_ok=True)  # Create the directory if it doesn't exist
     
     #Open the table of minimally contaminated, minimally self-contaminated lines
@@ -26,7 +27,7 @@ def run(logger,model_line_dir, results_dir, source='DSi', molecule='C2H5OH',num_
 
     #Sort the table by predicted line brightness
     safelinetable.sort('ModelBrightness', reverse=True)
-    targetlines= safelinetable[:(num_best_lines+1)]
+    targetlines= safelinetable[:(num_best_lines)]
     print(targetlines)
 
     # %%
@@ -50,7 +51,7 @@ def run(logger,model_line_dir, results_dir, source='DSi', molecule='C2H5OH',num_
         else:
             # Fit the lines with a 1D gaussian
             for targetline in targetlines_in_cube:
-                print(f'Found {targetline}\n between {min(representative_spectra['Frequency']).to("GHz")} and {max(representative_spectra['Frequency']).to("GHz")} in {representative_spectra_path}')
+                print(f'Found {targetline['QNs']} between {min(representative_spectra['Frequency']).to("GHz")} and {max(representative_spectra['Frequency']).to("GHz")} in {representative_spectra_path}')
                 fitter = LMLSQFitter()  
                 # Set the plotting range to be 10 km/s around the line
                 # This is arbitrary, but should be sufficient in most cases
@@ -76,22 +77,28 @@ def run(logger,model_line_dir, results_dir, source='DSi', molecule='C2H5OH',num_
                 fitted_model = fitter(gaussian_model, frequency_to_fit.to('GHz').value, flux_to_fit)
 
                 cov=fitter.fit_info['param_cov']  # This will give the covariance matrix of the fit parameters
-                errors_on_fit= np.sqrt(np.diag(cov)) if cov is not None else None #Convert covariance matrix to errors
+                errors_on_fit= np.sqrt(np.diag(cov)) if cov is not None else None #Convert covariance matrix to 1 sigma errors
                 if errors_on_fit is None:
                     print("Covariance matrix not available. Cannot calculate errors on fit parameters.")
                     continue
                 else:
                     print(f'Fitted parameters: {fitted_model.parameters}')
-                    print(f'Errors: {errors_on_fit}')  # This will give you the errors on the parameters
+                    print(f'Errors: {errors_on_fit}')
+
+                    string_manip_function=stringmanipulationdict[molecule_with_spaces]
+                    qns_for_figpath=string_manip_function(targetline['QNs'])
+                    figpath=representative_line_plots_home / f'{qns_for_figpath}_fitted.png'
                     #Append the results to the error table
                     model_fit_table.add_row([str(targetline['QNs']),fitted_model.amplitude.value*u.K,errors_on_fit[0]*u.K, 
                                         fitted_model.mean.value*u.GHz, errors_on_fit[1]*u.GHz, 
                                         fitted_model.stddev.value*u.GHz, errors_on_fit[2]*u.GHz])
                     #Plot output
-                    testplot=plt.plot(frequency_to_plot.to('GHz'), flux_for_plot,drawstyle='steps-mid', color='black')
-                    testgaussian=plt.plot(frequency_to_plot.to('GHz'), fitted_model(frequency_to_plot.to('GHz').value), color='red')
-                    plt.xlabel(r'$\nu$ (GHz)')
-                    plt.ylabel('Brightness Temperature (K)')
+                    testplot=plt.plot(frequency_to_plot.to('GHz'), flux_for_plot,drawstyle='steps-mid', color='black',label='Data')
+                    testgaussian=plt.plot(frequency_to_plot.to('GHz'), fitted_model(frequency_to_plot.to('GHz').value), color='red',label='Fit')
+                    plt.xlabel(r'$\nu$ [GHz]')
+                    plt.ylabel(r'$T_b$ [K]')
+                    plt.legend()
+                    plt.savefig(figpath)
                     plt.show()
                     #sys.exit()
 
@@ -105,9 +112,11 @@ def run(logger,model_line_dir, results_dir, source='DSi', molecule='C2H5OH',num_
     best_index=min_counts.most_common(1)[0][0]  # Get the index of the most common minimum index. most_common(1) returns a list of tuples, where the first element is the index and the second element is the count
     #Note, most_common(0) returns an empty list because it specifies how many most common elements to return. If you want to return all elements, you can use most_common() without any arguments.
     best_line=model_fit_table[best_index]
-    measurement_table_best_line=targetlines[best_index]
+    # Grab the best line from the input table of lines
+    input_table_best_line=targetlines[best_index]
 
-    print(measurement_table_best_line)
+    print(input_table_best_line)
+    return input_table_best_line
 
 
 

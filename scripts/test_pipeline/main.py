@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import sys
 import importlib
+import pdb
 sys.path.append('../')  # Adjust the path to include the parent directory
 
 utilities = importlib.import_module('utilities')
@@ -10,25 +11,29 @@ from utilities import *
 def main():
     # Set up logging
     logging.basicConfig(level=logging.INFO)
+    logger= logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
     current_dir = Path(__file__).parent
     logging.info(f"Main directory: {current_dir}")
     # Set necessary variables for analysis, will probably outsource these to another script as the structure develops
     source='DSi'
     fieldnumber=fields[source]
     molecule='C2H5OH'
-    results_dir = Path(f"results/{source}/")
-
-    # Define paths for data and results
-    model_line_dir = Path(f'../../linemodels/firstrelease/{source}/')
-    representative_line_output_dir=results_dir/"representativelinetests/"
-    logging.info(f'Creating directory for results of representative line measurement: {representative_line_output_dir}')
+    molecule_with_spaces=f' {molecule} '
+    results_dir = Path(f"results/{source}/{molecule}")
+    logging.info(f'Creating home directory for all results: {results_dir}')
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Identify representative lines
+    ### Step 1: Identify representative lines
+    
+    #Set number of candidate lines for fitting
     num_best_lines=5
-    logging.info(f"Selecting {molecule} representative line from {num_best_lines} candidate best lines in {model_line_dir}")
+    
     import findrepresentativeline
-    findrepresentativeline.run(model_line_dir, representative_line_output_dir, source, molecule, num_best_lines)
+    print(type(results_dir))
+    source_representativeline=findrepresentativeline.run(logger, results_dir, source, molecule, molecule_with_spaces,
+     num_best_lines)
+    print(source_representativeline)
 
     logging.info("Pipeline complete.")
 

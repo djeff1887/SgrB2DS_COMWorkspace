@@ -34,12 +34,6 @@ reference_molecule_module = importlib.import_module(reference_molecule)
 
 Splatalogue.QUERY_URL= 'https://splatalogue.online/c_export.php'
 
-def ethanol_qnsforfiles(qn):
-    tempqns=qn.replace('(','.')
-    tempqns=tempqns.replace(',','.')
-    fileready_qn=tempqns.replace(')','')
-    return fileready_qn
-
 '''This wing of the script takes in continuum-subtracted cubes, cuts out a subcube around a region of interest based on a DS9 region, and converts the subcubes into brightness temperature (K) units'''
 print('Cube-->Core-->Tex start\n')
 print('Begin Jy/beam-to-K and region subcube conversion\n')
@@ -109,13 +103,13 @@ def linelooplte(line_list,line_fwhm):
             nu_upper=reffreq+(line_fwhm_freq/2)#Am testing increasing the widths of the slabs, just to make sure we're not unneccessarily omitting signal. Reset back to dividing by 2 if this doesn't work
             nu_lower=reffreq-(line_fwhm_freq/2)#Am testing increasing the widths of the slabs, just to make sure we're not unneccessarily omitting signal. Reset back to dividing by 2 if this doesn't work
             if (max(cube.spectral_axis) - nu_upper) <= cube_edge_boundary or (nu_lower - min(cube.spectral_axis)) <= cube_edge_boundary:
-                print(f'{quantum_numbers[i]} is too close to the cube edges. Skipping\n')
+                print(f'{unsliced_transition} is too close to the cube edges. Skipping\n')
                 continue
             print(f'Make spectral slab between {nu_lower} and {nu_upper}')
             slab=cube.spectral_slab(nu_upper,nu_lower)
             #pdb.set_trace()
             print('Slicing quantum numbers')
-            transition=ethanol_qnsforfiles(line['QNs'])#qn_replace(quantum_numbers[i])
+            transition=stringmanipulationdict[molecule](line['QNs'])#qn_replace(quantum_numbers[i])
             moment0filename = home/f"{nospace_molecule}~{transition}_raw.fits"
             maskedmom0fn = home/f"{nospace_molecule}~{transition}_masked.fits"
             maskedmom0errfn = home/f"{nospace_molecule}~{transition}_error.fits"
@@ -168,7 +162,7 @@ def linelooplte(line_list,line_fwhm):
                             targettransition_modelflux=transitiontable['ModelBrightness'][targetdoublettransition] #Select the target transition's flux
                             target_flux_to_total_flux_ratio=targettransition_modelflux/all_companions_combined_flux #Compute the ratio of the target transition's flux to the total flux of the target and its companions
                             maskslabmom0=(maskedslab.moment0()+contmom0)/target_flux_to_total_flux_ratio #Scale the measured flux by the ratio of the target transition's flux to the total flux of the target and its companions
-                            print(f'\nDoublet line identified: {quantum_numbers[i]}')
+                            print(f'\nDoublet line identified: {unsliced_transition}')
                             print(f'Value scaled by factor of {target_flux_to_total_flux_ratio} to compensate for line blending.\n')
                             sys.exit()
                         else:

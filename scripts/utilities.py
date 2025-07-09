@@ -74,7 +74,7 @@ def approx_pickett_aul(intensity,nu,g,elower,eupper,q_300,T=300*u.K):
 def inverse_pickett(aij,nu,g,elower,eupper,q,T=300*u.K):
     return (((aij*g)/(nu**2*q))*(np.exp(-elower/(k*T))-np.exp(-eupper/(k*T)))*(1/2.7964e-16)).decompose()
 
-# LTE Analysis and Utility Functions
+### LTE Analysis Functions
 
 #def Tbthick(ntot,nu,line_width,mulu_2,g,q,eu_J,T_ex):
 #    print(f'ntot: {ntot}, nu: {nu},line_width: {line_width},mulu_2: {mulu_2},g: {g},q: {q},eu_J: {eu_J},T_ex: {T_ex}')
@@ -83,36 +83,69 @@ def inverse_pickett(aij,nu,g,elower,eupper,q,T=300*u.K):
 def mulu(aij,nu):#Rearranged from Eq 11 (Magnum & Shirley 2015), returns product in units of cm5 g s-2
     return (3*h*c**3*aij)/(64*np.pi**4*nu**3)
 
-'''Converts given line list in frequency to radio velocity'''
+# Converts given line list in frequency to radio velocity
 def vradio(frequency,rest_freq):
     velocity=c.to(u.km/u.s)*(1-((rest_freq-frequency)/rest_freq))
     return velocity.to('km s-1')
     
-'''Converts given velocity width to frequency width'''
+# Converts given velocity width to frequency width
 def velocitytofreq(velocity,ref_freq):
     frequency=((velocity)/c.to(u.km/u.s))*ref_freq
     return frequency.to('MHz')
     
+# Converts frequency to velocity at the given reference frequency
 def freqtovelocity(freq,ref_freq):
     velocity=(freq/ref_freq)*c.to('km s-1')
     return velocity.to('km s-1')
 
-'''Compute Rayleigh-Jean equivalent brightness temperature per M&S 2015 Eq. 24'''
+# Compute Rayleigh-Jean equivalent brightness temperature per M&S 2015 Eq. 24
 def rjequivtemp(nu,T_ex):
     return ((h*nu)/k)/(np.exp((h*nu)/(k*T_ex))-1)
     
-'''Compute upper-state column density and associated error of transition of interest'''      
-def N_u(nu,Aij,velocityintegrated_intensity_K,velint_intK_err):#(ntot,qrot,gu,eu_J,T_ex):#taken from pyspeckit documentation https://pyspeckit.readthedocs.io/en/latest/lte_molecule_model.html?highlight=Aij#lte-molecule-model
+# Compute upper-state column density and associated error of transition of interest   
+def N_u(nu,Aij,velocityintegrated_intensity_K,velint_intK_err):#taken from pyspeckit documentation https://pyspeckit.readthedocs.io/en/latest/lte_molecule_model.html?highlight=Aij#lte-molecule-model
     nuppercalc=((8*np.pi*k*nu**2)/(h*c**3*Aij))*velocityintegrated_intensity_K
-    nuppererr=((8*np.pi*k*nu**2)/(h*c**3*Aij))*velint_intK_err#(velint_intK_err.to('K km s-1')/velocityintegrated_intensity_K.to('K km s-1'))*nuppercalc
-    return nuppercalc.to('cm-2'), nuppererr.to('cm-2')#ntot/(qrot*np.exp(eu_J/(k*T_ex)))
+    nuppererr=((8*np.pi*k*nu**2)/(h*c**3*Aij))*velint_intK_err
+    return nuppercalc.to('cm-2'), nuppererr.to('cm-2')
     
 def KtoJ(T):#Convert from excitation temperature (Kelvin) to energy (Joules)
     return k*T
 
 def JtoK(E):#Convert from energy (Joules) to excitation temperature (Kelvin)
     return (E/k).to('K')
+        
+def t_rad(tau_nu, ff, nu, T_ex):#Radiation temperature per M&S (2015) Eq 27
+    return ff*(1-np.exp(-tau_nu))*(rjequivtemp(nu, T_ex)-rjequivtemp(nu,Tbg))
     
+def nupper_estimated(n_tot,g,q,euj,tex):#LTE model upper-state column density (nupper) using a fiducial/test total column density (ntot) and excitation temperature (Tex), inverted from pyspecket ntot_of_nupper function
+    return n_tot*(g/q)*np.exp(-euj/(k*tex))
+    
+def opticaldepth(aij,nu,T_ex,nupper,lw):#LTE model optical depth using nupper from the above equation
+    return (c**2/(8*np.pi*nu**2*lw))*aij*nupper*np.exp((h*nu)/(k*T_ex))
+
+def lineprofile(sigma,nu_0,nu):#Line profile function for pyspeckit ltemolecule module
+    return (1/(np.sqrt(2*np.pi)*sigma))*np.exp(-(nu-nu_0)**2/(2*sigma**2))
+
+def Ctau(tau):#Probably rotational temperature optical depth correction
+    return tau/(1-np.exp(-tau))
+
+def fit_qrot(input_logintercept=0,input_temperature=301*u.K,input_powerlawfit=0):#Fits line to extrapolate Qrot for molecules with incomplete Qrot tables
+    return input_logintercept*input_temperature.value**input_powerlawfit.slope
+    
+### String manipulation functions for quantum numbers
+def ch3oh_qn_replace(string):
+    string=string.replace('=','')
+    string=string.replace('(','_')
+    string=string.replace(')','')
+    string=string.replace(',','&')
+    return string
+
+def c2h5oh_qnsforfiles(qn):
+    tempqns=qn.replace('(','.')
+    tempqns=tempqns.replace(',','.')
+    fileready_qn=tempqns.replace(')','')
+    return fileready_qn
+
 def qngrabber(nums):#Probably outdated QN reformatter
     temp=nums.split('(')
     temp2=temp[1].split(',')
@@ -128,32 +161,10 @@ def qngrabber(nums):#Probably outdated QN reformatter
         kupper=int(temp2[0])
         
     return jupper, kupper
-        
-def t_rad(tau_nu, ff, nu, T_ex):#Radiation temperature per M&S (2015) Eq 27
-    return ff*(1-np.exp(-tau_nu))*(rjequivtemp(nu, T_ex)-rjequivtemp(nu,Tbg))
-    
-def nupper_estimated(n_tot,g,q,euj,tex):#LTE model upper-state column density (nupper) using a fiducial/test total column density (ntot) and excitation temperature (Tex), inverted from pyspecket ntot_of_nupper function
-    return n_tot*(g/q)*np.exp(-euj/(k*tex))
-    
-def opticaldepth(aij,nu,T_ex,nupper,lw):#LTE model optical depth using nupper from the above equation
-    return (c**2/(8*np.pi*nu**2*lw))*aij*nupper*np.exp((h*nu)/(k*T_ex))
-    
-'''Replaces unwanted characters from the QN table for use in file names'''
-def qn_replace(string):
-    string=string.replace('=','')
-    string=string.replace('(','_')
-    string=string.replace(')','')
-    string=string.replace(',','&')
-    return string
-    
-def lineprofile(sigma,nu_0,nu):#Line profile function for pyspeckit ltemolecule module
-    return (1/(np.sqrt(2*np.pi)*sigma))*np.exp(-(nu-nu_0)**2/(2*sigma**2))
 
-def Ctau(tau):#Probably rotational temperature optical depth correction
-    return tau/(1-np.exp(-tau))
+stringmanipulationdict={' CH3OH ':ch3oh_qn_replace, ' C2H5OH ':c2h5oh_qnsforfiles,}
 
-def fit_qrot(input_logintercept=0,input_temperature=301*u.K,input_powerlawfit=0):#Fits line to extrapolate Qrot for molecules with incomplete Qrot tables
-    return input_logintercept*input_temperature.value**input_powerlawfit.slope
+### Miscellaneous utility functions
 
 def round_to_1(x):#Round number to 1 significant figure
     return round(x, -int(floor(log10(abs(x)))))
