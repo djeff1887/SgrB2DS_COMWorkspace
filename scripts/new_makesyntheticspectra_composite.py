@@ -77,8 +77,17 @@ print(f'Collecting spectra from {assemblecubepath}')
 spectra=glob.glob(assemblecubepath)
 spectra.sort()
 
-homedict={'SgrB2S':'/blue/adamginsburg/d.jeff/XCLASS2021/files/SgrB2S/OctReimage_K/','DSi':'/blue/adamginsburg/d.jeff/XCLASS2021/files/DSi/field10originals_K/','DSii':'/blue/adamginsburg/d.jeff/XCLASS2021/files/DSii/field10originals_K/','DSiii':'/aug2023qrotfix/','DSiv':'/aug2023qrotfix/','DSv':f'/aug2023qrotfix/','DSVI':'/aug2023qrotfix/','DSVII':f'/aug2023qrotfix/','DSVIII':f'/aug2023qrotfix/','DSIX':f'/aug2023qrotfix/'}
-sourcepath=ch3oh_sourcedict[source]
+homedict = {'SgrB2S': '/blue/adamginsburg/d.jeff/XCLASS2021/files/SgrB2S/OctReimage_K/',
+    'DSi': '/blue/adamginsburg/d.jeff/XCLASS2021/files/DSi/field10originals_K/',
+    'DSii': '/blue/adamginsburg/d.jeff/XCLASS2021/files/DSii/field10originals_K/',
+    'DSiii': '/aug2023qrotfix/',
+    'DSiv': '/aug2023qrotfix/',
+    'DSv': '/aug2023qrotfix/',
+    'DSVI': '/aug2023qrotfix/',
+    'DSVII': '/aug2023qrotfix/',
+    'DSVIII': '/aug2023qrotfix/',
+    'DSIX': '/aug2023qrotfix/'}
+sourcepath = ch3oh_sourcedict[source]
 origsourcepath=f'/blue/adamginsburg/d.jeff/SgrB2DSreorg/field{fnum}/CH3OH/{source}{sourcepath}'
 
 texmappath=origsourcepath+'bootstrap_texmap_3sigma_allspw_withnans_weighted.fits'

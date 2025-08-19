@@ -18,8 +18,8 @@ def main():
     # Set necessary variables for analysis, will probably outsource these to another script as the structure develops
     source='DSi'
     fieldnumber=fields[source]
-    molecule='C2H5OH'
-    molecule_with_spaces=f' {molecule} '
+    molecule='CH3CH2CN'
+    molecule_with_spaces=f' {molecule} ' #needed for some dictionaries
     results_dir = Path(f"results/{source}/{molecule}")
     logging.info(f'Creating home directory for all results: {results_dir}')
     results_dir.mkdir(parents=True, exist_ok=True)

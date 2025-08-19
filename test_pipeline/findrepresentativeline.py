@@ -38,9 +38,7 @@ def run(logger, results_dir, source='DSi', molecule='C2H5OH', molecule_with_spac
     # %%
     # Loop through data cubes and identify lines that are present within
     # Then fit a 1D gaussian to lines that are present
-    model_fit_table=QTable(names=['QNs','Brightness','Error_Brightness', 'Frequency', 'Error_Frequency', 'Sigma', 'Error_Sigma'],
-                    dtype=['str', 'float', 'float', 'float', 'float', 'float', 'float'],
-                    units=['', 'K', 'K', 'GHz', 'GHz', 'GHz', 'GHz'])
+    model_fit_rows=[]
     for representative_spectra_path in representative_spectra_paths:
         # Read in the respresentative spectra for the source
         representative_spectra = QTable.read(representative_spectra_path)
@@ -89,7 +87,7 @@ def run(logger, results_dir, source='DSi', molecule='C2H5OH', molecule_with_spac
                     qns_for_figpath=string_manip_function(targetline['QNs'])
                     figpath=representative_line_plots_home / f'{qns_for_figpath}_fitted.png'
                     #Append the results to the error table
-                    model_fit_table.add_row([str(targetline['QNs']),fitted_model.amplitude.value*u.K,errors_on_fit[0]*u.K, 
+                    model_fit_rows.append([str(targetline['QNs']),fitted_model.amplitude.value*u.K,errors_on_fit[0]*u.K, 
                                         fitted_model.mean.value*u.GHz, errors_on_fit[1]*u.GHz, 
                                         fitted_model.stddev.value*u.GHz, errors_on_fit[2]*u.GHz])
                     #Plot output
@@ -101,6 +99,12 @@ def run(logger, results_dir, source='DSi', molecule='C2H5OH', molecule_with_spac
                     plt.savefig(figpath)
                     plt.show()
                     #sys.exit()
+    #spdb.set_trace()
+    model_fit_table=QTable([np.array(model_fit_rows).T],names=['QNs','Brightness','Error_Brightness', 'Frequency', 'Error_Frequency', 'Sigma', 'Error_Sigma'],
+           dtype=['str', 'float', 'float', 'float', 'float', 'float', 'float'],
+           units=['', 'K', 'K', 'GHz', 'GHz', 'GHz', 'GHz'])
+    
+    print(model_fit_table)
 
     # %%
     #Find the transition that has the lowest error in the most columns

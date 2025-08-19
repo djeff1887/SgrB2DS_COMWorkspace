@@ -162,7 +162,7 @@ def qngrabber(nums):#Probably outdated QN reformatter
         
     return jupper, kupper
 
-stringmanipulationdict={' CH3OH ':ch3oh_qn_replace, ' C2H5OH ':c2h5oh_qnsforfiles,}
+stringmanipulationdict={' CH3OH ':ch3oh_qn_replace, ' C2H5OH ':c2h5oh_qnsforfiles, ' CH3CH2CN ':c2h5oh_qnsforfiles}
 
 ### Miscellaneous utility functions
 
